@@ -1,28 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MessageCircle, Building2, MapPin, UserCircle, BarChart3, Briefcase } from 'lucide-react';
+import { MessageCircle, Building2, MapPin, Briefcase } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
-import { findUserById } from '../../data/users';
 import { Investor } from '../../types';
 
 export const InvestorProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user: currentUser } = useAuth();
   
-  // Fetch investor data
-  const investor = findUserById(id || '') as Investor | null;
+  // Real Data State
+  const [investor, setInvestor] = useState<Investor | null>(null);
+  const [loading, setLoading] = useState(true);
   
-  if (!investor || investor.role !== 'investor') {
+  // Fetch from Backend
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        // Backend API Call
+        const res = await fetch(`http://localhost:5000/api/users/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          // Data formatting to match Frontend Types
+          const formattedInvestor: Investor = {
+            id: data._id, 
+            name: data.name,
+            email: data.email,
+            role: 'investor',
+            // Fix for Avatar Error: Agar avatar na ho to default bana do
+            avatarUrl: data.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`,
+            bio: data.bio || '',
+            isOnline: true,
+            location: data.location || 'San Francisco, CA',
+            createdAt: data.createdAt,
+            
+            // Investor Specifics
+            portfolioCompanies: data.portfolioCompanies || [], 
+            totalInvestments: data.totalInvestments || 0,
+            minimumInvestment: data.minimumInvestment || "$10k",
+            maximumInvestment: data.maximumInvestment || "$50k",
+            investmentStage: data.investmentStage || [],
+            investmentInterests: data.investmentInterests || []
+          };
+          setInvestor(formattedInvestor);
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchUserProfile();
+  }, [id]);
+
+  if (loading) return <div className="text-center py-12">Loading Profile...</div>;
+
+  if (!investor) {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold text-gray-900">Investor not found</h2>
-        <p className="text-gray-600 mt-2">The investor profile you're looking for doesn't exist or has been removed.</p>
-        <Link to="/dashboard/entrepreneur">
-          <Button variant="outline" className="mt-4">Back to Dashboard</Button>
+        <Link to="/investors">
+          <Button variant="outline" className="mt-4">Back to List</Button>
         </Link>
       </div>
     );
@@ -32,12 +79,11 @@ export const InvestorProfile: React.FC = () => {
   
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Profile header */}
       <Card>
         <CardBody className="sm:flex sm:items-start sm:justify-between p-6">
           <div className="sm:flex sm:space-x-6">
             <Avatar
-              src={investor.avatarUrl}
+              src={investor.avatarUrl || ''} // Safety check added here too
               alt={investor.name}
               size="xl"
               status={investor.isOnline ? 'online' : 'offline'}
@@ -54,7 +100,7 @@ export const InvestorProfile: React.FC = () => {
               <div className="flex flex-wrap gap-2 justify-center sm:justify-start mt-3">
                 <Badge variant="primary">
                   <MapPin size={14} className="mr-1" />
-                  San Francisco, CA
+                  {investor.location}
                 </Badge>
                 {investor.investmentStage.map((stage, index) => (
                   <Badge key={index} variant="secondary" size="sm">{stage}</Badge>
@@ -66,201 +112,52 @@ export const InvestorProfile: React.FC = () => {
           <div className="mt-6 sm:mt-0 flex flex-col sm:flex-row gap-2 justify-center sm:justify-end">
             {!isCurrentUser && (
               <Link to={`/chat/${investor.id}`}>
-                <Button
-                  leftIcon={<MessageCircle size={18} />}
-                >
+                <Button leftIcon={<MessageCircle size={18} />}>
                   Message
                 </Button>
               </Link>
-            )}
-            
-            {isCurrentUser && (
-              <Button
-                variant="outline"
-                leftIcon={<UserCircle size={18} />}
-              >
-                Edit Profile
-              </Button>
             )}
           </div>
         </CardBody>
       </Card>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main content - left side */}
         <div className="lg:col-span-2 space-y-6">
-          {/* About */}
           <Card>
-            <CardHeader>
-              <h2 className="text-lg font-medium text-gray-900">About</h2>
-            </CardHeader>
-            <CardBody>
-              <p className="text-gray-700">{investor.bio}</p>
-            </CardBody>
+            <CardHeader><h2 className="text-lg font-medium text-gray-900">About</h2></CardHeader>
+            <CardBody><p className="text-gray-700">{investor.bio}</p></CardBody>
           </Card>
           
-          {/* Investment Interests */}
           <Card>
-            <CardHeader>
-              <h2 className="text-lg font-medium text-gray-900">Investment Interests</h2>
-            </CardHeader>
+            <CardHeader><h2 className="text-lg font-medium text-gray-900">Portfolio Companies</h2></CardHeader>
             <CardBody>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-md font-medium text-gray-900">Industries</h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {investor.investmentInterests.map((interest, index) => (
-                      <Badge key={index} variant="primary" size="md">{interest}</Badge>
+              {investor.portfolioCompanies.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {investor.portfolioCompanies.map((company, index) => (
+                      <div key={index} className="flex items-center p-3 border border-gray-200 rounded-md">
+                        <div className="p-3 bg-primary-50 rounded-md mr-3">
+                          <Briefcase size={18} className="text-primary-700" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-900">{company}</h3>
+                          <p className="text-xs text-gray-500">Portfolio Company</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-md font-medium text-gray-900">Investment Stages</h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {investor.investmentStage.map((stage, index) => (
-                      <Badge key={index} variant="secondary" size="md">{stage}</Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-md font-medium text-gray-900">Investment Criteria</h3>
-                  <ul className="mt-2 space-y-2 text-gray-700">
-                    <li className="flex items-start">
-                      <span className="inline-block w-2 h-2 bg-primary-600 rounded-full mt-1.5 mr-2"></span>
-                      Strong founding team with domain expertise
-                    </li>
-                    <li className="flex items-start">
-                      <span className="inline-block w-2 h-2 bg-primary-600 rounded-full mt-1.5 mr-2"></span>
-                      Clear market opportunity and product-market fit
-                    </li>
-                    <li className="flex items-start">
-                      <span className="inline-block w-2 h-2 bg-primary-600 rounded-full mt-1.5 mr-2"></span>
-                      Scalable business model with strong unit economics
-                    </li>
-                    <li className="flex items-start">
-                      <span className="inline-block w-2 h-2 bg-primary-600 rounded-full mt-1.5 mr-2"></span>
-                      Potential for significant growth and market impact
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-          
-          {/* Portfolio Companies */}
-          <Card>
-            <CardHeader className="flex justify-between items-center">
-              <h2 className="text-lg font-medium text-gray-900">Portfolio Companies</h2>
-              <span className="text-sm text-gray-500">{investor.portfolioCompanies.length} companies</span>
-            </CardHeader>
-            <CardBody>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {investor.portfolioCompanies.map((company, index) => (
-                  <div key={index} className="flex items-center p-3 border border-gray-200 rounded-md">
-                    <div className="p-3 bg-primary-50 rounded-md mr-3">
-                      <Briefcase size={18} className="text-primary-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">{company}</h3>
-                      <p className="text-xs text-gray-500">Invested in 2022</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              ) : <p className="text-gray-500">No portfolio companies listed.</p>}
             </CardBody>
           </Card>
         </div>
         
-        {/* Sidebar - right side */}
         <div className="space-y-6">
-          {/* Investment Details */}
           <Card>
-            <CardHeader>
-              <h2 className="text-lg font-medium text-gray-900">Investment Details</h2>
-            </CardHeader>
+            <CardHeader><h2 className="text-lg font-medium text-gray-900">Investment Details</h2></CardHeader>
             <CardBody>
               <div className="space-y-4">
                 <div>
-                  <span className="text-sm text-gray-500">Investment Range</span>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {investor.minimumInvestment} - {investor.maximumInvestment}
-                  </p>
-                </div>
-                
-                <div>
-                  <span className="text-sm text-gray-500">Total Investments</span>
-                  <p className="text-md font-medium text-gray-900">{investor.totalInvestments} companies</p>
-                </div>
-                
-                <div>
-                  <span className="text-sm text-gray-500">Typical Investment Timeline</span>
-                  <p className="text-md font-medium text-gray-900">3-5 years</p>
-                </div>
-                
-                <div className="pt-3 border-t border-gray-100">
-                  <span className="text-sm text-gray-500">Investment Focus</span>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium">SaaS & B2B</span>
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div className="bg-primary-600 h-2 rounded-full" style={{ width: '75%' }}></div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium">FinTech</span>
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div className="bg-primary-600 h-2 rounded-full" style={{ width: '60%' }}></div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-medium">HealthTech</span>
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div className="bg-primary-600 h-2 rounded-full" style={{ width: '40%' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-          
-          {/* Stats */}
-          <Card>
-            <CardHeader>
-              <h2 className="text-lg font-medium text-gray-900">Investment Stats</h2>
-            </CardHeader>
-            <CardBody>
-              <div className="space-y-3">
-                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">Successful Exits</h3>
-                      <p className="text-xl font-semibold text-primary-700 mt-1">4</p>
-                    </div>
-                    <BarChart3 size={24} className="text-primary-600" />
-                  </div>
-                </div>
-                
-                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">Avg. ROI</h3>
-                      <p className="text-xl font-semibold text-primary-700 mt-1">3.2x</p>
-                    </div>
-                    <BarChart3 size={24} className="text-primary-600" />
-                  </div>
-                </div>
-                
-                <div className="p-3 border border-gray-200 rounded-md bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">Active Investments</h3>
-                      <p className="text-xl font-semibold text-primary-700 mt-1">{investor.portfolioCompanies.length}</p>
-                    </div>
-                    <BarChart3 size={24} className="text-primary-600" />
-                  </div>
+                  <span className="text-sm text-gray-500">Range</span>
+                  <p className="text-lg font-semibold text-gray-900">{investor.minimumInvestment} - {investor.maximumInvestment}</p>
                 </div>
               </div>
             </CardBody>

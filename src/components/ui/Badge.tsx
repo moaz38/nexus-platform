@@ -9,6 +9,7 @@ interface BadgeProps {
   size?: BadgeSize;
   rounded?: boolean;
   className?: string;
+  onClick?: () => void; // Ye line add ki hai
 }
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -17,6 +18,7 @@ export const Badge: React.FC<BadgeProps> = ({
   size = 'md',
   rounded = false,
   className = '',
+  onClick, // Yahan receive kiya
 }) => {
   const variantClasses = {
     primary: 'bg-primary-100 text-primary-800',
@@ -35,10 +37,12 @@ export const Badge: React.FC<BadgeProps> = ({
   };
   
   const roundedClass = rounded ? 'rounded-full' : 'rounded';
+  const cursorClass = onClick ? 'cursor-pointer hover:opacity-80' : ''; // Clickable look
   
   return (
     <span
-      className={`inline-flex items-center font-medium ${roundedClass} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center font-medium ${roundedClass} ${variantClasses[variant]} ${sizeClasses[size]} ${cursorClass} ${className}`}
+      onClick={onClick} // Event pass kar diya
     >
       {children}
     </span>

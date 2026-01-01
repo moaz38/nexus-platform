@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast'; // ✅ New Import
 import { AuthProvider } from './context/AuthContext';
 
 // Layouts
@@ -29,10 +30,13 @@ import { DealsPage } from './pages/deals/DealsPage';
 
 // Chat Pages
 import { ChatPage } from './pages/chat/ChatPage';
-
+import { VideoCallPage } from './pages/chat/VideoCallPage';
 function App() {
   return (
     <AuthProvider>
+      {/* ✅ Toaster added here (Top-Right corner) */}
+      <Toaster position="top-right" reverseOrder={false} />
+      
       <Router>
         <Routes>
           {/* Authentication Routes */}
@@ -89,6 +93,8 @@ function App() {
             <Route index element={<ChatPage />} />
             <Route path=":userId" element={<ChatPage />} />
           </Route>
+          {/* Video Call Route */}
+          <Route path="/room/:roomId" element={<VideoCallPage />} />
           
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />

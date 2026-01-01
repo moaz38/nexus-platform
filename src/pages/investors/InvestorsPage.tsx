@@ -1,51 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, MapPin } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { InvestorCard } from '../../components/investor/InvestorCard';
-import { investors } from '../../data/users';
+// Mock data import hata diya hai
 
 export const InvestorsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   
-  // Get unique investment stages and interests
-  const allStages = Array.from(new Set(investors.flatMap(i => i.investmentStage)));
-  const allInterests = Array.from(new Set(investors.flatMap(i => i.investmentInterests)));
+  // Real Investors State
+  const [investors, setInvestors] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // API Call to Fetch Real Investors
+  useEffect(() => {
+    const fetchInvestors = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/users/investors', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          // 1. Current User ki ID nikalo
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+          // 2. Pehle list se "Khud" ko nikaal do
+          const filteredList = data.filter((inv: any) => inv._id !== currentUser.id);
+
+          // 3. Phir baaki logon ka data format karo (jo tum ne likha tha)
+          const formattedData = filteredList.map((inv: any) => ({
+            ...inv,
+            id: inv._id, // MongoDB _id ko id bana diya (Zaroori hai)
+            investmentStage: inv.investmentStage && inv.investmentStage.length > 0 ? inv.investmentStage : ['Seed'],
+            investmentInterests: inv.investmentInterests && inv.investmentInterests.length > 0 ? inv.investmentInterests : ['Tech'],
+            avatarUrl: inv.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(inv.name)}&background=random`,
+            company: inv.companyName || "Independent Investor"
+          }));
+          
+          setInvestors(formattedData);
+        }
+      } catch (error) {
+        console.error("Error fetching investors:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchInvestors();
+  }, []);
   
-  // Filter investors based on search and filters
+  // Get unique investment stages and interests (Dynamic based on real data)
+  const allStages = Array.from(new Set(investors.flatMap(i => i.investmentStage || [])));
+  const allInterests = Array.from(new Set(investors.flatMap(i => i.investmentInterests || [])));
+  
+  // Filter logic
   const filteredInvestors = investors.filter(investor => {
     const matchesSearch = searchQuery === '' || 
       investor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      investor.bio.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      investor.investmentInterests.some(interest => 
+      (investor.bio && investor.bio.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      investor.investmentInterests.some((interest: string) => 
         interest.toLowerCase().includes(searchQuery.toLowerCase())
       );
     
     const matchesStages = selectedStages.length === 0 ||
-      investor.investmentStage.some(stage => selectedStages.includes(stage));
+      investor.investmentStage.some((stage: string) => selectedStages.includes(stage));
     
     const matchesInterests = selectedInterests.length === 0 ||
-      investor.investmentInterests.some(interest => selectedInterests.includes(interest));
+      investor.investmentInterests.some((interest: string) => selectedInterests.includes(interest));
     
     return matchesSearch && matchesStages && matchesInterests;
   });
   
   const toggleStage = (stage: string) => {
     setSelectedStages(prev => 
-      prev.includes(stage)
-        ? prev.filter(s => s !== stage)
-        : [...prev, stage]
+      prev.includes(stage) ? prev.filter(s => s !== stage) : [...prev, stage]
     );
   };
   
   const toggleInterest = (interest: string) => {
     setSelectedInterests(prev => 
-      prev.includes(interest)
-        ? prev.filter(i => i !== interest)
-        : [...prev, interest]
+      prev.includes(interest) ? prev.filter(i => i !== interest) : [...prev, interest]
     );
   };
   
@@ -66,27 +107,29 @@ export const InvestorsPage: React.FC = () => {
             <CardBody className="space-y-6">
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-2">Investment Stage</h3>
-                <div className="space-y-2">
-                  {allStages.map(stage => (
-                    <button
-                      key={stage}
-                      onClick={() => toggleStage(stage)}
-                      className={`block w-full text-left px-3 py-2 rounded-md text-sm ${
-                        selectedStages.includes(stage)
-                          ? 'bg-primary-50 text-primary-700'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {stage}
-                    </button>
-                  ))}
-                </div>
+                {allStages.length > 0 ? (
+                    <div className="space-y-2">
+                    {allStages.map((stage: any) => (
+                        <button
+                        key={stage}
+                        onClick={() => toggleStage(stage)}
+                        className={`block w-full text-left px-3 py-2 rounded-md text-sm ${
+                            selectedStages.includes(stage)
+                            ? 'bg-primary-50 text-primary-700'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                        >
+                        {stage}
+                        </button>
+                    ))}
+                    </div>
+                ) : <p className="text-sm text-gray-500">No filters available</p>}
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-2">Investment Interests</h3>
                 <div className="flex flex-wrap gap-2">
-                  {allInterests.map(interest => (
+                  {allInterests.map((interest: any) => (
                     <Badge
                       key={interest}
                       variant={selectedInterests.includes(interest) ? 'primary' : 'gray'}
@@ -98,24 +141,6 @@ export const InvestorsPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Location</h3>
-                <div className="space-y-2">
-                  <button className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    <MapPin size={16} className="mr-2" />
-                    San Francisco, CA
-                  </button>
-                  <button className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    <MapPin size={16} className="mr-2" />
-                    New York, NY
-                  </button>
-                  <button className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    <MapPin size={16} className="mr-2" />
-                    Boston, MA
-                  </button>
-                </div>
-              </div>
             </CardBody>
           </Card>
         </div>
@@ -124,7 +149,7 @@ export const InvestorsPage: React.FC = () => {
         <div className="lg:col-span-3 space-y-6">
           <div className="flex items-center gap-4">
             <Input
-              placeholder="Search investors by name, interests, or keywords..."
+              placeholder="Search investors..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               startAdornment={<Search size={18} />}
@@ -140,12 +165,18 @@ export const InvestorsPage: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredInvestors.map(investor => (
-              <InvestorCard
-                key={investor.id}
-                investor={investor}
-              />
-            ))}
+            {isLoading ? (
+                <p>Loading Investors...</p>
+            ) : filteredInvestors.length > 0 ? (
+                filteredInvestors.map(investor => (
+                <InvestorCard
+                    key={investor.id}
+                    investor={investor}
+                />
+                ))
+            ) : (
+                <p>No Investors found. Try creating a new account with 'Investor' role.</p>
+            )}
           </div>
         </div>
       </div>

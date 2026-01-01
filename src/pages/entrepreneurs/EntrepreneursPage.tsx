@@ -1,35 +1,62 @@
-import React, { useState } from 'react';
-import { Search, Filter, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, TrendingUp } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { EntrepreneurCard } from '../../components/entrepreneur/EntrepreneurCard';
-import { entrepreneurs } from '../../data/users';
 
 export const EntrepreneursPage: React.FC = () => {
+  const [entrepreneurs, setEntrepreneurs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   const [selectedFundingRange, setSelectedFundingRange] = useState<string[]>([]);
-  
-  // Get unique industries and funding ranges
-  const allIndustries = Array.from(new Set(entrepreneurs.map(e => e.industry)));
+
+  // 1. Fetch Real Data from Backend
+  useEffect(() => {
+    const fetchEntrepreneurs = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/users/entrepreneurs', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+          // ✅ FIX: _id ko id mein convert karo taake Link sahi banay
+          const formattedData = data.map((user: any) => ({
+            ...user,
+            id: user._id, // Ye line bohot zaroori hai!
+          }));
+          setEntrepreneurs(formattedData);
+        }
+      } catch (error) {
+        console.error("Error fetching startups:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEntrepreneurs();
+  }, []);
+
+  // Get unique industries dynamically
+  const allIndustries = Array.from(new Set(entrepreneurs.map(e => e.industry || 'Tech')));
   const fundingRanges = ['< $500K', '$500K - $1M', '$1M - $5M', '> $5M'];
-  
-  // Filter entrepreneurs based on search and filters
+
+  // 2. Filter Logic
   const filteredEntrepreneurs = entrepreneurs.filter(entrepreneur => {
     const matchesSearch = searchQuery === '' || 
-      entrepreneur.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entrepreneur.startupName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entrepreneur.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entrepreneur.pitchSummary.toLowerCase().includes(searchQuery.toLowerCase());
+      (entrepreneur.name && entrepreneur.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (entrepreneur.companyName && entrepreneur.companyName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (entrepreneur.industry && entrepreneur.industry.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesIndustry = selectedIndustries.length === 0 ||
       selectedIndustries.includes(entrepreneur.industry);
     
-    // Simple funding range filter based on the amount string
     const matchesFunding = selectedFundingRange.length === 0 || 
       selectedFundingRange.some(range => {
-        const amount = parseInt(entrepreneur.fundingNeeded.replace(/[^0-9]/g, ''));
+        const amountStr = entrepreneur.fundingNeeded || "0"; 
+        const amount = parseInt(amountStr.toString().replace(/[^0-9]/g, '')) || 0;
         switch (range) {
           case '< $500K': return amount < 500;
           case '$500K - $1M': return amount >= 500 && amount <= 1000;
@@ -41,23 +68,19 @@ export const EntrepreneursPage: React.FC = () => {
     
     return matchesSearch && matchesIndustry && matchesFunding;
   });
-  
+
   const toggleIndustry = (industry: string) => {
     setSelectedIndustries(prev => 
-      prev.includes(industry)
-        ? prev.filter(i => i !== industry)
-        : [...prev, industry]
+      prev.includes(industry) ? prev.filter(i => i !== industry) : [...prev, industry]
     );
   };
-  
+
   const toggleFundingRange = (range: string) => {
     setSelectedFundingRange(prev => 
-      prev.includes(range)
-        ? prev.filter(r => r !== range)
-        : [...prev, range]
+      prev.includes(range) ? prev.filter(r => r !== range) : [...prev, range]
     );
   };
-  
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -76,7 +99,7 @@ export const EntrepreneursPage: React.FC = () => {
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-2">Industry</h3>
                 <div className="space-y-2">
-                  {allIndustries.map(industry => (
+                  {allIndustries.length > 0 ? allIndustries.map(industry => (
                     <button
                       key={industry}
                       onClick={() => toggleIndustry(industry)}
@@ -88,7 +111,7 @@ export const EntrepreneursPage: React.FC = () => {
                     >
                       {industry}
                     </button>
-                  ))}
+                  )) : <p className="text-xs text-gray-400">No industries found</p>}
                 </div>
               </div>
               
@@ -110,24 +133,6 @@ export const EntrepreneursPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-gray-900 mb-2">Location</h3>
-                <div className="space-y-2">
-                  <button className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    <MapPin size={16} className="mr-2" />
-                    San Francisco, CA
-                  </button>
-                  <button className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    <MapPin size={16} className="mr-2" />
-                    New York, NY
-                  </button>
-                  <button className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-50">
-                    <MapPin size={16} className="mr-2" />
-                    Boston, MA
-                  </button>
-                </div>
-              </div>
             </CardBody>
           </Card>
         </div>
@@ -136,7 +141,7 @@ export const EntrepreneursPage: React.FC = () => {
         <div className="lg:col-span-3 space-y-6">
           <div className="flex items-center gap-4">
             <Input
-              placeholder="Search startups by name, industry, or keywords..."
+              placeholder="Search startups..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               startAdornment={<Search size={18} />}
@@ -152,12 +157,22 @@ export const EntrepreneursPage: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredEntrepreneurs.map(entrepreneur => (
-              <EntrepreneurCard
-                key={entrepreneur.id}
-                entrepreneur={entrepreneur}
-              />
-            ))}
+            {loading ? (
+                <div className="col-span-2 text-center py-10">Loading Startups...</div>
+            ) : filteredEntrepreneurs.length > 0 ? (
+                filteredEntrepreneurs.map(entrepreneur => (
+                  <EntrepreneurCard
+                    key={entrepreneur._id}
+                    entrepreneur={entrepreneur}
+                  />
+                ))
+            ) : (
+                <div className="col-span-2 text-center py-12 bg-gray-50 rounded-lg">
+                    <TrendingUp size={48} className="mx-auto text-gray-300 mb-3" />
+                    <h3 className="text-lg font-medium text-gray-900">No Startups Found</h3>
+                    <p className="text-gray-500">Try adjusting your filters.</p>
+                </div>
+            )}
           </div>
         </div>
       </div>

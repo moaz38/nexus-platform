@@ -5,21 +5,21 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
-  avatarUrl: string;
-  bio: string;
+  avatarUrl?: string; // Optional kar diya taake crash na ho
+  bio?: string;       // Optional
   isOnline?: boolean;
-  createdAt: string;
+  createdAt?: string;
+  location?: string;  // ✅ Ye Naya add kiya hai (Error fix karne ke liye)
 }
 
 export interface Entrepreneur extends User {
   role: 'entrepreneur';
-  startupName: string;
-  pitchSummary: string;
-  fundingNeeded: string;
-  industry: string;
-  location: string;
-  foundedYear: number;
-  teamSize: number;
+  startupName?: string;
+  pitchSummary?: string;
+  fundingNeeded?: string;
+  industry?: string;
+  foundedYear?: number;
+  teamSize?: number;
 }
 
 export interface Investor extends User {
@@ -50,11 +50,12 @@ export interface ChatConversation {
 
 export interface CollaborationRequest {
   id: string;
-  investorId: string;
-  entrepreneurId: string;
-  message: string;
+  senderId: string; // Changed from investorId/entrepreneurId to generic sender/receiver
+  receiverId: string;
   status: 'pending' | 'accepted' | 'rejected';
+  message: string;
   createdAt: string;
+  sender?: User; // UI display ke liye
 }
 
 export interface Document {

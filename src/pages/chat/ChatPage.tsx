@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Send, Phone, Video, Info, Smile } from 'lucide-react';
+import { Send, Phone, Video, Info, Smile, MessageCircle } from 'lucide-react';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -10,7 +10,6 @@ import { useAuth } from '../../context/AuthContext';
 import { Message } from '../../types';
 import { findUserById } from '../../data/users';
 import { getMessagesBetweenUsers, sendMessage, getConversationsForUser } from '../../data/messages';
-import { MessageCircle } from 'lucide-react';
 
 export const ChatPage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -76,7 +75,8 @@ export const ChatPage: React.FC = () => {
             <div className="border-b border-gray-200 p-4 flex justify-between items-center">
               <div className="flex items-center">
                 <Avatar
-                  src={chatPartner.avatarUrl}
+                  // *** FIX ADDED HERE ***
+                  src={chatPartner.avatarUrl || ''}
                   alt={chatPartner.name}
                   size="md"
                   status={chatPartner.isOnline ? 'online' : 'offline'}
@@ -92,30 +92,15 @@ export const ChatPage: React.FC = () => {
               </div>
               
               <div className="flex space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full p-2"
-                  aria-label="Voice call"
-                >
+                <Button variant="ghost" size="sm" className="rounded-full p-2">
                   <Phone size={18} />
                 </Button>
                 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full p-2"
-                  aria-label="Video call"
-                >
+                <Button variant="ghost" size="sm" className="rounded-full p-2">
                   <Video size={18} />
                 </Button>
                 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full p-2"
-                  aria-label="Info"
-                >
+                <Button variant="ghost" size="sm" className="rounded-full p-2">
                   <Info size={18} />
                 </Button>
               </div>
@@ -148,13 +133,7 @@ export const ChatPage: React.FC = () => {
             {/* Message input */}
             <div className="border-t border-gray-200 p-4">
               <form onSubmit={handleSendMessage} className="flex space-x-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full p-2"
-                  aria-label="Add emoji"
-                >
+                <Button type="button" variant="ghost" size="sm" className="rounded-full p-2">
                   <Smile size={20} />
                 </Button>
                 
@@ -172,7 +151,6 @@ export const ChatPage: React.FC = () => {
                   size="sm"
                   disabled={!newMessage.trim()}
                   className="rounded-full p-2 w-10 h-10 flex items-center justify-center"
-                  aria-label="Send message"
                 >
                   <Send size={18} />
                 </Button>
