@@ -4,7 +4,6 @@ import { Input } from '../../components/ui/Input';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { InvestorCard } from '../../components/investor/InvestorCard';
-// Mock data import hata diya hai
 
 export const InvestorsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,7 +19,10 @@ export const InvestorsPage: React.FC = () => {
     const fetchInvestors = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/users/investors', {
+        
+        // 🔥 FIX 1: URL change kiya '127.0.0.1' (Speed ke liye)
+        // 🔥 FIX 2: Path change kiya '?role=investor' (Backend logic ke mutabiq)
+        const res = await fetch('http://127.0.0.1:5001/api/users?role=investor', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -29,15 +31,15 @@ export const InvestorsPage: React.FC = () => {
         
         if (res.ok) {
           // 1. Current User ki ID nikalo
-          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const currentUser = JSON.parse(localStorage.getItem('business_nexus_user') || '{}'); // Key name fix kiya
 
           // 2. Pehle list se "Khud" ko nikaal do
-          const filteredList = data.filter((inv: any) => inv._id !== currentUser.id);
+          const filteredList = data.filter((inv: any) => inv._id !== currentUser.id && inv._id !== currentUser._id);
 
-          // 3. Phir baaki logon ka data format karo (jo tum ne likha tha)
+          // 3. Data Format karo
           const formattedData = filteredList.map((inv: any) => ({
             ...inv,
-            id: inv._id, // MongoDB _id ko id bana diya (Zaroori hai)
+            id: inv._id, // ✅ MongoDB _id ko id bana diya
             investmentStage: inv.investmentStage && inv.investmentStage.length > 0 ? inv.investmentStage : ['Seed'],
             investmentInterests: inv.investmentInterests && inv.investmentInterests.length > 0 ? inv.investmentInterests : ['Tech'],
             avatarUrl: inv.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(inv.name)}&background=random`,
@@ -63,17 +65,17 @@ export const InvestorsPage: React.FC = () => {
   // Filter logic
   const filteredInvestors = investors.filter(investor => {
     const matchesSearch = searchQuery === '' || 
-      investor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (investor.name && investor.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (investor.bio && investor.bio.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      investor.investmentInterests.some((interest: string) => 
+      (investor.investmentInterests && investor.investmentInterests.some((interest: string) => 
         interest.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      ));
     
     const matchesStages = selectedStages.length === 0 ||
-      investor.investmentStage.some((stage: string) => selectedStages.includes(stage));
+      (investor.investmentStage && investor.investmentStage.some((stage: string) => selectedStages.includes(stage)));
     
     const matchesInterests = selectedInterests.length === 0 ||
-      investor.investmentInterests.some((interest: string) => selectedInterests.includes(interest));
+      (investor.investmentInterests && investor.investmentInterests.some((interest: string) => selectedInterests.includes(interest)));
     
     return matchesSearch && matchesStages && matchesInterests;
   });
@@ -166,7 +168,7 @@ export const InvestorsPage: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {isLoading ? (
-                <p>Loading Investors...</p>
+                <p className="text-center col-span-2">Loading Investors...</p>
             ) : filteredInvestors.length > 0 ? (
                 filteredInvestors.map(investor => (
                 <InvestorCard
@@ -175,7 +177,9 @@ export const InvestorsPage: React.FC = () => {
                 />
                 ))
             ) : (
-                <p>No Investors found. Try creating a new account with 'Investor' role.</p>
+                <p className="text-center col-span-2 text-gray-500">
+                    No Investors found. Try creating a new account with 'Investor' role to verify.
+                </p>
             )}
           </div>
         </div>

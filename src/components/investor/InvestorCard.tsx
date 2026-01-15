@@ -39,7 +39,7 @@ export const InvestorCard: React.FC<InvestorCardProps> = ({
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/meetings', {
+      const response = await fetch('http://localhost:5001/api/meetings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

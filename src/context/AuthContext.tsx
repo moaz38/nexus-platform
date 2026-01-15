@@ -2,183 +2,139 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User, UserRole, AuthContextType } from '../types';
 import toast from 'react-hot-toast';
 
-// Create Auth Context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Local storage keys
 const USER_STORAGE_KEY = 'business_nexus_user';
-const RESET_TOKEN_KEY = 'business_nexus_reset_token';
 
-// Backend URL
-const API_URL = 'http://localhost:5000/api/auth';
+// ✅ Ports
+const API_URL = 'http://127.0.0.1:5001/api/auth';
+const USERS_URL = 'http://127.0.0.1:5001/api/users'; 
 
-// Auth Provider Component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for stored user on initial load
+  // 1. APP LOAD LOGIC
   useEffect(() => {
-    const storedUser = localStorage.getItem(USER_STORAGE_KEY);
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const initAuth = async () => {
+      const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+      const token = localStorage.getItem('token');
+
+      if (storedUser && token) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser); // Show old data immediately
+
+        // Check for updates in background
+        await checkLatestStatus(parsedUser.id || parsedUser._id, token);
+      }
+      setIsLoading(false);
+    };
+    initAuth();
   }, []);
 
-  // REGISTER Function (Connected to Backend)
-  const register = async (name: string, email: string, password: string, role: UserRole): Promise<void> => {
-    setIsLoading(true);
-    
+  // ✅ HELPER: Check latest status from server
+  const checkLatestStatus = async (userId: string, token: string) => {
     try {
-      const response = await fetch(`${API_URL}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password, role }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
-
-      // Backend returns _id, convert it to id for frontend
-      const newUser: User = {
-        id: data._id,
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`,
-        bio: '',
-        isOnline: true,
-        createdAt: new Date().toISOString() // Or use data.createdAt if backend sends it
-      };
-      
-      setUser(newUser);
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
-      localStorage.setItem('token', data.token);
-      toast.success('Account created successfully!');
-
-    } catch (error) {
-      toast.error((error as Error).message);
-      throw error;
-    } finally {
-      setIsLoading(false);
+        const response = await fetch(`${USERS_URL}/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+            const freshData = await response.json();
+            const isPrem = freshData.isPremium === true || freshData.isPremium === 'true';
+            
+            const updatedUser = { ...freshData, id: freshData._id, isPremium: isPrem };
+            setUser(updatedUser);
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+        }
+    } catch (err) {
+        console.error("Background check failed", err);
     }
   };
 
-  // LOGIN Function (Connected to Backend)
-  const login = async (email: string, password: string, role: UserRole): Promise<void> => {
-    setIsLoading(true);
+  const refreshProfile = async () => {
+    const token = localStorage.getItem('token');
+    // @ts-ignore
+    if (!token || !user) return;
+    // @ts-ignore
+    await checkLatestStatus(user.id || user._id, token);
+  };
+
+  // 🔥 3. LOGIN FUNCTION (UPDATED FOR DUAL PURPOSE) 🛠️
+  // Ye function ab "Login" aur "Update Profile" dono kaam karega
+  const login = async (emailOrToken: string, passwordOrUser: string | any, role?: UserRole) => {
     
+    // 🛑 A. UPDATE PROFILE LOGIC (Agar second cheez Password nahi, User Data hai)
+    if (typeof passwordOrUser === 'object') {
+        const updatedUser = { ...passwordOrUser, id: passwordOrUser._id };
+        
+        // 1. State update karo (Foran Navbar change ho jaye)
+        setUser(updatedUser);
+        
+        // 2. Storage update karo (Refresh par data rahay)
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+        
+        // 3. Token update karo (Agar naya mila hai)
+        if (emailOrToken) {
+            localStorage.setItem('token', emailOrToken);
+        }
+        return; // Yahan se wapis chale jao, Login API call mat karo
+    }
+
+    // 🚀 B. NORMAL LOGIN LOGIC (Agar second cheez Password hai)
+    setIsLoading(true);
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailOrToken, password: passwordOrUser }),
       });
-
       const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+      if (data.role !== role) throw new Error(`Please login via ${data.role} portal`);
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+      localStorage.setItem('token', data.token);
+
+      // Full Profile Fetch
+      const profileRes = await fetch(`${USERS_URL}/${data._id}`, {
+        headers: { Authorization: `Bearer ${data.token}` }
+      });
+      
+      let finalUserData = data;
+      if (profileRes.ok) {
+          finalUserData = await profileRes.json();
       }
 
-      // Role Verification (Optional but good for security)
-      if (data.role !== role) {
-        throw new Error(`Please login via ${data.role} portal`);
-      }
-
-      const loggedInUser: User = {
-        id: data._id,
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`,
-        bio: '',
-        isOnline: true,
-        createdAt: new Date().toISOString()
-      };
+      const isPrem = finalUserData.isPremium === true || finalUserData.isPremium === 'true';
+      const loggedInUser = { ...finalUserData, id: finalUserData._id, isPremium: isPrem };
       
       setUser(loggedInUser);
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(loggedInUser));
-      localStorage.setItem('token', data.token);
-      toast.success('Successfully logged in!');
-
-    } catch (error) {
-      toast.error((error as Error).message);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+      
+      toast.success('Login Successful!');
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally { setIsLoading(false); }
   };
 
-  // LOGOUT Function
-  const logout = (): void => {
+  const logout = () => {
     setUser(null);
     localStorage.removeItem(USER_STORAGE_KEY);
     localStorage.removeItem('token');
-    toast.success('Logged out successfully');
-  };
-
-  // Mock functions (Backend integration pending for these)
-  const forgotPassword = async (email: string): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Password reset instructions sent (Mock)');
-    } catch (error) {
-      toast.error((error as Error).message);
-    }
-  };
-
-  const resetPassword = async (token: string, newPassword: string): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Password reset successfully (Mock)');
-    } catch (error) {
-      toast.error((error as Error).message);
-    }
-  };
-
-  const updateProfile = async (userId: string, updates: Partial<User>): Promise<void> => {
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      if (user) {
-        const updatedUser = { ...user, ...updates };
-        setUser(updatedUser);
-        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-      }
-      toast.success('Profile updated (Local only)');
-    } catch (error) {
-      toast.error((error as Error).message);
-    }
+    toast.success('Logged out');
   };
 
   const value = {
-    user,
-    login,
-    register,
-    logout,
-    forgotPassword,
-    resetPassword,
-    updateProfile,
+    user, login, logout, isLoading, refreshProfile,
+    register: async () => {}, 
     isAuthenticated: !!user,
-    isLoading
+    forgotPassword: async () => {}, resetPassword: async () => {}, updateProfile: async () => {}
   };
 
+  // @ts-ignore
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Custom hook for using auth context
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

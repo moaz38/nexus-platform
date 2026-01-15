@@ -1,168 +1,203 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { MessageCircle, Building2, MapPin, Briefcase } from 'lucide-react';
-import { Avatar } from '../../components/ui/Avatar';
+import { useParams, useNavigate } from 'react-router-dom';
+import { 
+  MessageCircle, TrendingUp, FileText, MapPin, Briefcase, 
+  ShieldCheck, Crown, Globe, Mail, Building2, Download
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { useAuth } from '../../context/AuthContext';
-import { Investor } from '../../types';
+import { Avatar } from '../../components/ui/Avatar';
+import toast from 'react-hot-toast';
+
+// Types to avoid errors
+interface Document {
+  _id: string;
+  name: string;
+  url: string;
+  size?: string;
+}
 
 export const InvestorProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { user: currentUser } = useAuth();
-  
-  // Real Data State
-  const [investor, setInvestor] = useState<Investor | null>(null);
+  const navigate = useNavigate();
+  const [investor, setInvestor] = useState<any>(null);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Fetch from Backend
+
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        // Backend API Call
-        const res = await fetch(`http://localhost:5000/api/users/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        if (!id) return;
+
+        // 1. Fetch Investor
+        const userRes = await fetch(`http://localhost:5001/api/users/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
         });
         
-        const data = await res.json();
+        if (userRes.ok) {
+            const userData = await userRes.json();
+            setInvestor(userData);
+        }
+
+        // 2. Fetch Documents
+        const docRes = await fetch(`http://localhost:5001/api/documents/user/${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
         
-        if (res.ok) {
-          // Data formatting to match Frontend Types
-          const formattedInvestor: Investor = {
-            id: data._id, 
-            name: data.name,
-            email: data.email,
-            role: 'investor',
-            // Fix for Avatar Error: Agar avatar na ho to default bana do
-            avatarUrl: data.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=random`,
-            bio: data.bio || '',
-            isOnline: true,
-            location: data.location || 'San Francisco, CA',
-            createdAt: data.createdAt,
-            
-            // Investor Specifics
-            portfolioCompanies: data.portfolioCompanies || [], 
-            totalInvestments: data.totalInvestments || 0,
-            minimumInvestment: data.minimumInvestment || "$10k",
-            maximumInvestment: data.maximumInvestment || "$50k",
-            investmentStage: data.investmentStage || [],
-            investmentInterests: data.investmentInterests || []
-          };
-          setInvestor(formattedInvestor);
+        if (docRes.ok) {
+            const docData = await docRes.json();
+            setDocuments(docData);
         }
       } catch (error) {
-        console.error("Error fetching profile:", error);
+        console.error(error);
       } finally {
         setLoading(false);
       }
     };
-
-    if (id) fetchUserProfile();
+    fetchData();
   }, [id]);
 
-  if (loading) return <div className="text-center py-12">Loading Profile...</div>;
+  const handleMessage = () => navigate(`/chat/${id}`);
+  const handlePitch = () => {
+    toast.success("Pitch request sent successfully!");
+  };
 
-  if (!investor) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900">Investor not found</h2>
-        <Link to="/investors">
-          <Button variant="outline" className="mt-4">Back to List</Button>
-        </Link>
-      </div>
-    );
-  }
-  
-  const isCurrentUser = currentUser?.id === investor.id;
-  
+  if (loading) return <div className="p-20 text-center text-gray-500">Loading Profile...</div>;
+  if (!investor) return <div className="p-20 text-center text-red-500">Investor not found</div>;
+
+  const isPremium = investor.isPremium;
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      <Card>
-        <CardBody className="sm:flex sm:items-start sm:justify-between p-6">
-          <div className="sm:flex sm:space-x-6">
-            <Avatar
-              src={investor.avatarUrl || ''} // Safety check added here too
-              alt={investor.name}
-              size="xl"
-              status={investor.isOnline ? 'online' : 'offline'}
-              className="mx-auto sm:mx-0"
-            />
-            
-            <div className="mt-4 sm:mt-0 text-center sm:text-left">
-              <h1 className="text-2xl font-bold text-gray-900">{investor.name}</h1>
-              <p className="text-gray-600 flex items-center justify-center sm:justify-start mt-1">
-                <Building2 size={16} className="mr-1" />
-                Investor • {investor.totalInvestments} investments
-              </p>
-              
-              <div className="flex flex-wrap gap-2 justify-center sm:justify-start mt-3">
-                <Badge variant="primary">
-                  <MapPin size={14} className="mr-1" />
-                  {investor.location}
-                </Badge>
-                {investor.investmentStage.map((stage, index) => (
-                  <Badge key={index} variant="secondary" size="sm">{stage}</Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-6 sm:mt-0 flex flex-col sm:flex-row gap-2 justify-center sm:justify-end">
-            {!isCurrentUser && (
-              <Link to={`/chat/${investor.id}`}>
-                <Button leftIcon={<MessageCircle size={18} />}>
-                  Message
-                </Button>
-              </Link>
-            )}
-          </div>
-        </CardBody>
-      </Card>
+    <div className="min-h-screen bg-gray-100 pb-10 font-sans">
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader><h2 className="text-lg font-medium text-gray-900">About</h2></CardHeader>
-            <CardBody><p className="text-gray-700">{investor.bio}</p></CardBody>
-          </Card>
-          
-          <Card>
-            <CardHeader><h2 className="text-lg font-medium text-gray-900">Portfolio Companies</h2></CardHeader>
-            <CardBody>
-              {investor.portfolioCompanies.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {investor.portfolioCompanies.map((company, index) => (
-                      <div key={index} className="flex items-center p-3 border border-gray-200 rounded-md">
-                        <div className="p-3 bg-primary-50 rounded-md mr-3">
-                          <Briefcase size={18} className="text-primary-700" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-900">{company}</h3>
-                          <p className="text-xs text-gray-500">Portfolio Company</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-              ) : <p className="text-gray-500">No portfolio companies listed.</p>}
-            </CardBody>
-          </Card>
+      {/* --- HERO SECTION --- */}
+      <div className="relative bg-white shadow-sm mb-4">
+        <div className={`h-48 w-full ${isPremium ? 'bg-gradient-to-r from-teal-800 to-emerald-600' : 'bg-gray-300'}`}>
+           {isPremium && (
+             <div className="absolute top-4 right-4 bg-black/20 text-white px-3 py-1 rounded text-xs font-bold tracking-wider">
+               PREMIUM INVESTOR
+             </div>
+           )}
         </div>
-        
-        <div className="space-y-6">
-          <Card>
-            <CardHeader><h2 className="text-lg font-medium text-gray-900">Investment Details</h2></CardHeader>
-            <CardBody>
-              <div className="space-y-4">
-                <div>
-                  <span className="text-sm text-gray-500">Range</span>
-                  <p className="text-lg font-semibold text-gray-900">{investor.minimumInvestment} - {investor.maximumInvestment}</p>
+
+        <div className="max-w-5xl mx-auto px-4 relative pb-6">
+            
+            {/* Profile Picture (FIXED) */}
+            <div className="absolute -top-16 left-6">
+                {/* Scale 1.5 use kiya taake Avatar bara dikhay bina code change kiye */}
+                <div className={`rounded-full p-1 bg-white transform scale-150 origin-bottom-left ${isPremium ? 'border-2 border-yellow-500' : ''}`}>
+                    <Avatar 
+                        src={investor.avatarUrl || ''} 
+                        alt={investor.name} 
+                        size="xl" 
+                    />
                 </div>
-              </div>
-            </CardBody>
-          </Card>
+            </div>
+
+            {/* Actions (Top Right) */}
+            <div className="flex justify-end pt-4 gap-3 mb-12 md:mb-0">
+                 <Button variant="outline" onClick={handleMessage}>
+                    <div className="flex items-center gap-2"><MessageCircle size={18} /> Message</div>
+                 </Button>
+                 <Button variant="primary" onClick={handlePitch} className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
+                    <div className="flex items-center gap-2"><TrendingUp size={18} /> Pitch Your Idea</div>
+                 </Button>
+            </div>
+
+            {/* Name & Headline */}
+            <div className="mt-8 md:mt-4">
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-gray-900">{investor.name}</h1>
+                    
+                    {/* Icons Wrappers to prevent TS Errors */}
+                    {isPremium && (
+                      <div className="text-yellow-500" title="Premium Investor">
+                        <Crown size={20} fill="currentColor" />
+                      </div>
+                    )}
+                    {isPremium && (
+                      <div className="text-emerald-500" title="Verified Fund">
+                        <ShieldCheck size={20} />
+                      </div>
+                    )}
+                </div>
+                
+                <p className="text-gray-900 text-lg mt-1 font-medium flex items-center gap-2">
+                    <Building2 size={16} className="text-gray-400"/>
+                    {investor.companyName || "Angel Investor"}
+                </p>
+                
+                <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-1"><Briefcase size={14}/> Focus: {investor.industry || 'Tech & SaaS'}</div>
+                    <div className="flex items-center gap-1"><MapPin size={14}/> {investor.location || 'Global'}</div>
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                    <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100">
+                        Active Investor
+                    </span>
+                    <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-100">
+                        Seed / Series A
+                    </span>
+                </div>
+            </div>
         </div>
+      </div>
+
+      {/* --- DETAILS GRID --- */}
+      <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Main Info */}
+          <div className="md:col-span-2 space-y-4">
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+                  <h2 className="text-xl font-bold mb-4 text-gray-900">Investment Philosophy</h2>
+                  <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-line">
+                      {investor.bio || "No investment philosophy details added."}
+                  </p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+                  <h2 className="text-xl font-bold mb-4 text-gray-900">Portfolio & Requirements</h2>
+                  {documents.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {documents.map((doc: Document) => (
+                              <div key={doc._id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition bg-gray-50 flex items-center gap-3">
+                                  <div className="text-emerald-600 bg-emerald-100 p-2 rounded"><FileText size={20} /></div>
+                                  <div className="overflow-hidden">
+                                      <h4 className="font-semibold text-sm truncate text-gray-900">{doc.name}</h4>
+                                      <div className="flex gap-3 mt-1 text-xs text-blue-600 font-bold">
+                                          <a href={doc.url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
+                                          <a href={doc.url} download className="hover:underline flex items-center gap-1"><Download size={10}/> Download</a>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  ) : (
+                      <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+                          <p className="text-gray-400 text-sm">No documents listed.</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-4">
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100">
+                   <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Contact Info</h3>
+                   <ul className="space-y-4">
+                       <li className="flex items-center text-sm text-gray-700 gap-3">
+                           <Mail size={16} className="text-emerald-600" />
+                           <span className="truncate">{investor.email}</span>
+                       </li>
+                       <li className="flex items-center text-sm text-gray-700 gap-3">
+                           <Globe size={16} className="text-emerald-600" />
+                           <span className="truncate">www.{investor.companyName?.replace(/\s/g, '').toLowerCase() || 'firm'}.com</span>
+                       </li>
+                   </ul>
+              </div>
+          </div>
+
       </div>
     </div>
   );

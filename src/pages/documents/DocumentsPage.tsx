@@ -14,7 +14,7 @@ export const DocumentsPage: React.FC = () => {
   const fetchDocuments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/documents', {
+      const res = await fetch('http://localhost:5001/api/documents', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -45,7 +45,7 @@ export const DocumentsPage: React.FC = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:5000/api/documents/upload', {
+      const res = await fetch('http://localhost:5001/api/documents/upload', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }, // FormData ke sath Content-Type header nahi lagate (Auto lagta hai)
         body: formData

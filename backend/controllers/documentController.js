@@ -12,7 +12,7 @@ const uploadDocument = async (req, res) => {
       name: req.file.originalname,
       type: req.file.mimetype,
       size: (req.file.size / 1024 / 1024).toFixed(2) + ' MB',
-      url: `http://localhost:5000/uploads/${req.file.filename}`,
+      url: `http://localhost:5001/uploads/${req.file.filename}`,
       ownerId: req.user._id
     });
 

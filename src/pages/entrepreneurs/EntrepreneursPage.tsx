@@ -16,16 +16,17 @@ export const EntrepreneursPage: React.FC = () => {
     const fetchEntrepreneurs = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/users/entrepreneurs', {
+        // ✅ FIX 1: 'localhost' -> '127.0.0.1' (Speed ke liye)
+        // ✅ FIX 2: '/entrepreneurs' -> '?role=entrepreneur' (Backend logic ke mutabiq)
+        const res = await fetch('http://127.0.0.1:5001/api/users?role=entrepreneur', {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
         
         if (res.ok) {
-          // ✅ FIX: _id ko id mein convert karo taake Link sahi banay
           const formattedData = data.map((user: any) => ({
             ...user,
-            id: user._id, // Ye line bohot zaroori hai!
+            id: user._id, 
           }));
           setEntrepreneurs(formattedData);
         }

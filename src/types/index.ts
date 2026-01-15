@@ -10,6 +10,7 @@ export interface User {
   isOnline?: boolean;
   createdAt?: string;
   location?: string;  // ✅ Ye Naya add kiya hai (Error fix karne ke liye)
+  isPremium?: boolean;
 }
 
 export interface Entrepreneur extends User {

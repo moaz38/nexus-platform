@@ -1,111 +1,157 @@
-import React from 'react';
-import { Bell, MessageCircle, UserPlus, DollarSign } from 'lucide-react';
-import { Card, CardBody } from '../../components/ui/Card';
-import { Avatar } from '../../components/ui/Avatar';
-import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
+import React, { useState, useEffect } from 'react';
+import { Bell, MessageSquare, AlertCircle, Info, CheckCheck } from 'lucide-react';
+import { Avatar } from '../../components/ui/Avatar'; 
+import toast from 'react-hot-toast';
 
-const notifications = [
-  {
-    id: 1,
-    type: 'message',
-    user: {
-      name: 'Sarah Johnson',
-      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg'
-    },
-    content: 'sent you a message about your startup',
-    time: '5 minutes ago',
-    unread: true
-  },
-  {
-    id: 2,
-    type: 'connection',
-    user: {
-      name: 'Michael Rodriguez',
-      avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg'
-    },
-    content: 'accepted your connection request',
-    time: '2 hours ago',
-    unread: true
-  },
-  {
-    id: 3,
-    type: 'investment',
-    user: {
-      name: 'Jennifer Lee',
-      avatar: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg'
-    },
-    content: 'showed interest in investing in your startup',
-    time: '1 day ago',
-    unread: false
-  }
-];
+interface Notification {
+  _id: string;
+  type: 'message' | 'alert' | 'system';
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+  sender?: {
+    name: string;
+    avatarUrl?: string;
+  };
+}
 
 export const NotificationsPage: React.FC = () => {
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'message':
-        return <MessageCircle size={16} className="text-primary-600" />;
-      case 'connection':
-        return <UserPlus size={16} className="text-secondary-600" />;
-      case 'investment':
-        return <DollarSign size={16} className="text-accent-600" />;
-      default:
-        return <Bell size={16} className="text-gray-600" />;
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 1. Fetch Notifications
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5001/api/notifications', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications");
+    } finally {
+      setLoading(false);
     }
   };
-  
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-gray-600">Stay updated with your network activity</p>
-        </div>
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // 2. 🔥 MARK ALL AS READ FUNCTION (Backend Call)
+  const handleMarkAllRead = async () => {
+    try {
+        // UI Update (Optimistic) - Foran user ko dikhao ke read ho gaye
+        setNotifications(prev => prev.map(n => ({...n, isRead: true})));
         
-        <Button variant="outline" size="sm">
-          Mark all as read
-        </Button>
-      </div>
-      
-      <div className="space-y-4">
-        {notifications.map(notification => (
-          <Card
-            key={notification.id}
-            className={`transition-colors duration-200 ${
-              notification.unread ? 'bg-primary-50' : ''
-            }`}
-          >
-            <CardBody className="flex items-start p-4">
-              <Avatar
-                src={notification.user.avatar}
-                alt={notification.user.name}
-                size="md"
-                className="flex-shrink-0 mr-4"
-              />
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-900">
-                    {notification.user.name}
-                  </span>
-                  {notification.unread && (
-                    <Badge variant="primary" size="sm" rounded>New</Badge>
-                  )}
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5001/api/notifications/mark-all-read', {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+            toast.success("All notifications marked as read");
+        }
+    } catch (error) {
+        console.error("Failed to mark all read");
+    }
+  };
+
+  // 3. Mark Single as Read
+  const markAsRead = async (id: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5001/api/notifications/${id}/read`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+    } catch (error) {
+      console.error("Failed to mark read");
+    }
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'message': return <MessageSquare size={18} className="text-blue-500" />;
+      case 'alert': return <AlertCircle size={18} className="text-red-500" />;
+      default: return <Info size={18} className="text-gray-500" />;
+    }
+  };
+
+  if (loading) return <div className="p-20 text-center text-gray-500">Loading updates...</div>;
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 animate-fade-in">
+      <div className="max-w-3xl mx-auto">
+        
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+            <p className="text-gray-500">Stay updated with your network activity</p>
+          </div>
+          
+          {/* 🔥 Button Ab Backend se Connect Hai */}
+          {notifications.some(n => !n.isRead) && (
+              <button 
+                 onClick={handleMarkAllRead}
+                 className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 bg-indigo-50 rounded-lg transition-colors hover:bg-indigo-100"
+              >
+                <CheckCheck size={16} /> Mark all as read
+              </button>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {notifications.length > 0 ? (
+            notifications.map((notif) => (
+              <div 
+                key={notif._id} 
+                className={`flex gap-4 p-4 rounded-xl border transition-all cursor-pointer ${
+                    notif.isRead 
+                    ? 'bg-white border-gray-100 opacity-75' 
+                    : 'bg-white border-indigo-100 shadow-sm ring-1 ring-indigo-50'
+                }`}
+                onClick={() => !notif.isRead && markAsRead(notif._id)}
+              >
+                <div className="flex-shrink-0">
+                    {notif.sender ? (
+                        <Avatar src={notif.sender.avatarUrl} alt={notif.sender.name} size="md" />
+                    ) : (
+                        <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                            {getIcon(notif.type)}
+                        </div>
+                    )}
                 </div>
-                
-                <p className="text-gray-600 mt-1">
-                  {notification.content}
-                </p>
-                
-                <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                  {getNotificationIcon(notification.type)}
-                  <span>{notification.time}</span>
+
+                <div className="flex-1">
+                    <p className={`text-sm ${notif.isRead ? 'text-gray-600' : 'text-gray-900 font-semibold'}`}>
+                        {notif.content}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                        {new Date(notif.createdAt).toLocaleString()}
+                    </p>
                 </div>
+
+                {!notif.isRead && (
+                    <div className="flex-shrink-0 flex items-center">
+                        <span className="h-2.5 w-2.5 rounded-full bg-indigo-500"></span>
+                    </div>
+                )}
               </div>
-            </CardBody>
-          </Card>
-        ))}
+            ))
+          ) : (
+            <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-200">
+                <Bell className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                <h3 className="text-lg font-medium text-gray-900">No notifications yet</h3>
+                <p className="text-gray-500">We'll let you know when something important happens.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ export const EntrepreneurDashboard: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const res = await fetch('http://localhost:5000/api/meetings/my-meetings', {
+      const res = await fetch('http://127.0.0.1:5001/api/meetings/my-meetings', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -44,7 +44,7 @@ export const EntrepreneurDashboard: React.FC = () => {
   const handleStatusUpdate = async (id: string, status: 'accepted' | 'rejected') => {
     try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:5000/api/meetings/${id}`, {
+        const res = await fetch(`http://127.0.0.1:5001/api/meetings/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',

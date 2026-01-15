@@ -1,206 +1,195 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Users, Bell, Calendar, TrendingUp, Check, X, Clock } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+  Search, Filter, MapPin, Calendar, Users, 
+  MessageCircle, ExternalLink, Briefcase, DollarSign 
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardBody, CardHeader } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { useAuth } from '../../context/AuthContext';
-import toast from 'react-hot-toast';
+import { Avatar } from '../../components/ui/Avatar'; // ✅ Updated Avatar Import
 
 export const InvestorDashboard: React.FC = () => {
-  const { user } = useAuth();
-  const [meetings, setMeetings] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const [entrepreneurs, setEntrepreneurs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // 1. Fetch Real Meetings
-  const fetchMeetings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const res = await fetch('http://localhost:5000/api/meetings/my-meetings', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setMeetings(data);
-      }
-    } catch (error) {
-      console.error("Error fetching meetings:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterIndustry, setFilterIndustry] = useState('All');
 
   useEffect(() => {
-    fetchMeetings();
-  }, [user]);
-
-  // 2. Handle Accept/Reject
-  const handleStatusUpdate = async (id: string, status: 'accepted' | 'rejected') => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/meetings/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-
-      if (res.ok) {
-        toast.success(`Meeting ${status} successfully!`);
-        fetchMeetings(); // Refresh list
+    const fetchEntrepreneurs = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        // Port 5001 se data la rahe hain
+        const response = await fetch('http://localhost:5001/api/users?role=entrepreneur', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setEntrepreneurs(data);
+        }
+      } catch (error) {
+        console.error("Error fetching startups:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      toast.error("Something went wrong");
-    }
-  };
+    };
 
-  if (!user) return null;
+    fetchEntrepreneurs();
+  }, []);
 
-  const pendingRequests = meetings.filter(m => m.status === 'pending');
-  const upcomingMeetings = meetings.filter(m => m.status === 'accepted');
+  // Filter Logic
+  const filteredEntrepreneurs = entrepreneurs.filter(ent => {
+    const matchesSearch = ent.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          ent.companyName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesIndustry = filterIndustry === 'All' || ent.industry === filterIndustry;
+    return matchesSearch && matchesIndustry;
+  });
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gray-50 p-6 animate-fade-in">
+      
+      {/* Header */}
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome, {user.name}</h1>
-          <p className="text-gray-600">Discover promising startups and manage your portfolio</p>
+           <h1 className="text-2xl font-bold text-gray-900">Find Startups</h1>
+           <p className="text-gray-500">Discover promising startups looking for investment</p>
         </div>
-        
-        <Link to="/entrepreneurs">
-          <Button leftIcon={<TrendingUp size={18} />}>
-            Find Startups
-          </Button>
+        <Link to="/dashboard">
+            <Button variant="outline">Back to Dashboard</Button>
         </Link>
       </div>
-      
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-primary-50 border border-primary-100">
-          <CardBody>
-            <div className="flex items-center">
-              <div className="p-3 bg-primary-100 rounded-full mr-4">
-                <Bell size={20} className="text-primary-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-primary-700">Meeting Requests</p>
-                <h3 className="text-xl font-semibold text-primary-900">{pendingRequests.length}</h3>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
-        <Card className="bg-secondary-50 border border-secondary-100">
-          <CardBody>
-            <div className="flex items-center">
-              <div className="p-3 bg-secondary-100 rounded-full mr-4">
-                <Users size={20} className="text-secondary-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-secondary-700">Portfolio</p>
-                <h3 className="text-xl font-semibold text-secondary-900">0</h3>
-              </div>
+        {/* FILTERS SIDEBAR */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Filter size={18} /> Filters
+            </h3>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+              <select 
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                value={filterIndustry}
+                onChange={(e) => setFilterIndustry(e.target.value)}
+              >
+                <option value="All">All Industries</option>
+                <option value="Tech">Tech</option>
+                <option value="Health">Healthcare</option>
+                <option value="Finance">Fintech</option>
+                <option value="Education">Education</option>
+              </select>
             </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-accent-50 border border-accent-100">
-          <CardBody>
-            <div className="flex items-center">
-              <div className="p-3 bg-accent-100 rounded-full mr-4">
-                <Calendar size={20} className="text-accent-700" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-accent-700">Upcoming Meetings</p>
-                <h3 className="text-xl font-semibold text-accent-900">{upcomingMeetings.length}</h3>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* MEETING REQUESTS SECTION */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader className="flex justify-between items-center">
-              <h2 className="text-lg font-medium text-gray-900">Meeting Requests</h2>
-              <Badge variant="primary">{pendingRequests.length} pending</Badge>
-            </CardHeader>
             
-            <CardBody>
-              {loading ? (
-                  <p>Loading...</p>
-              ) : pendingRequests.length > 0 ? (
-                <div className="space-y-4">
-                  {pendingRequests.map((meeting: any) => (
-                    <div key={meeting._id} className="border p-4 rounded-lg flex justify-between items-center bg-white shadow-sm">
-                        <div>
-                            <h4 className="font-semibold text-gray-900">{meeting.title}</h4>
-                            <p className="text-sm text-gray-500">{meeting.description}</p>
-                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-                                <Clock size={14} />
-                                <span>{meeting.date} at {meeting.time} ({meeting.duration} mins)</span>
-                            </div>
-                            <div className="mt-1">
-                                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">
-                                    Request From: {meeting.senderId?.name || "Entrepreneur"}
-                                </span>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => handleStatusUpdate(meeting._id, 'accepted')}
-                                className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition"
-                                title="Accept Meeting"
-                            >
-                                <Check size={20} />
-                            </button>
-                            <button 
-                                onClick={() => handleStatusUpdate(meeting._id, 'rejected')}
-                                className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition"
-                                title="Reject Meeting"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                    </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Funding Stage</label>
+              <div className="space-y-2">
+                  {['Seed', 'Series A', 'Series B'].map(stage => (
+                      <div key={stage} className="flex items-center gap-2">
+                          <input type="checkbox" className="rounded text-indigo-600" />
+                          <span className="text-sm text-gray-600">{stage}</span>
+                      </div>
                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No new meeting requests.
-                </div>
-              )}
-            </CardBody>
-          </Card>
+              </div>
+            </div>
+          </div>
+        </div>
 
-           {/* UPCOMING MEETINGS LIST */}
-           <Card>
-            <CardHeader>
-                <h2 className="text-lg font-medium text-gray-900">Your Schedule</h2>
-            </CardHeader>
-            <CardBody>
-                {upcomingMeetings.length > 0 ? (
-                    <div className="space-y-3">
-                        {upcomingMeetings.map((meeting: any) => (
-                             <div key={meeting._id} className="flex items-center p-3 bg-gray-50 rounded-md border-l-4 border-green-500">
-                                <div className="flex-1">
-                                    <h4 className="font-medium">{meeting.title}</h4>
-                                    <p className="text-sm text-gray-500">{meeting.date} • {meeting.time} with {meeting.senderId?.name}</p>
-                                </div>
-                                <Badge variant="success">Confirmed</Badge>
-                             </div>
-                        ))}
+        {/* CARDS GRID */}
+        <div className="lg:col-span-3">
+          
+          {/* Search Bar */}
+          <div className="mb-6 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input 
+              type="text" 
+              placeholder="Search by founder or company name..." 
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredEntrepreneurs.map((ent) => (
+              <div key={ent._id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow flex flex-col justify-between h-full">
+                
+                {/* 1. Header with Auto-Fixing Avatar */}
+                <div className="flex items-start gap-4 mb-4">
+                  
+                    {/* ✅ Ab humne simple Avatar use kiya hai jo tootay ga nahi */}
+                    <Avatar 
+                        src={ent.avatarUrl} 
+                        alt={ent.name} 
+                        size="lg" // Card ke liye bara size
+                    />
+
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg leading-tight">{ent.name}</h3>
+                      <p className="text-sm text-gray-500 font-medium">{ent.companyName || 'Startup Founder'}</p>
+                      
+                      <div className="flex gap-2 mt-1">
+                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded flex items-center gap-1">
+                           <MapPin size={10} /> {ent.location || 'Remote'}
+                         </span>
+                         <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded flex items-center gap-1 border border-amber-100">
+                           <Calendar size={10} /> {new Date(ent.createdAt).getFullYear()}
+                         </span>
+                      </div>
                     </div>
-                ) : <p className="text-gray-500">No upcoming meetings.</p>}
-            </CardBody>
-          </Card>
+                </div>
+
+                {/* 2. Body Content */}
+                <div className="mb-6 space-y-3">
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Pitch Summary</p>
+                    <p className="text-sm text-gray-700 line-clamp-2 mt-1">
+                      {ent.bio || "This founder is working on something exciting. View profile for full details."}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-50">
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase">Funding Need</p>
+                      <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                        <DollarSign size={14} className="text-green-500"/> $500k - $1M
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase">Team Size</p>
+                      <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                        <Users size={14} className="text-blue-500"/> 1-10 people
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Footer Buttons */}
+                <div className="flex gap-3 mt-auto">
+                  <Button variant="outline" fullWidth size="sm" onClick={() => navigate(`/chat/${ent._id}`)}>
+                    <MessageCircle size={16} className="mr-2" /> Message
+                  </Button>
+                  <Button variant="primary" fullWidth size="sm" onClick={() => navigate(`/profile/entrepreneur/${ent._id}`)}>
+                    View Profile <ExternalLink size={16} className="ml-2" /> 
+                  </Button>
+                </div>
+
+              </div>
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {filteredEntrepreneurs.length === 0 && !loading && (
+             <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                <Briefcase className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                <p className="text-gray-500">No startups found matching your filters.</p>
+                <button onClick={() => {setSearchTerm(''); setFilterIndustry('All')}} className="text-indigo-600 text-sm font-bold mt-2 hover:underline">
+                  Clear Filters
+                </button>
+             </div>
+          )}
+
         </div>
       </div>
     </div>

@@ -1,50 +1,67 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const path = require('path'); // ✅ New Import (Files ka rasta dikhane ke liye)
-
-// Config sab se uper rakho
-dotenv.config();
-
+const path = require('path');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const authRoutes = require('./routes/authRoutes');
-const meetingRoutes = require('./routes/meetingRoutes');
-const userRoutes = require('./routes/userRoutes');
+
+dotenv.config();
+
+// ✅ Models Import
+const User = require('./models/User'); 
+const { protect } = require('./middleware/authMiddleware');
 
 const app = express();
 
-app.use(cors());
+// ✅ CORS (Sab allow kar diya)
+app.use(cors({ origin: '*' }));
 app.use(express.json());
-
-// ✅ FIX: "uploads" folder ko Public banao taake images browser mein khul sakein
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// *** DEBUGGING LOGS ***
-console.log("------------------------------------------------");
-console.log("Check 1 - Mongo URI:", process.env.MONGO_URI ? "Loaded ✅" : "Missing ❌");
-console.log("Check 2 - JWT Secret:", process.env.JWT_SECRET ? "Loaded ✅" : "Missing ❌");
-console.log("------------------------------------------------");
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB Connected Successfully! 🚀'))
-  .catch((err) => {
-    console.error('Database Connection Failed:', err);
-  });
+  .then(() => console.log('✅ MongoDB Connected Successfully!'))
+  .catch((err) => console.error('❌ Database Connection Failed:', err));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/meetings', meetingRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/documents', require('./routes/documentRoutes'));
+// ********************************************************
+// 🔥 PREMIUM UPGRADE ROUTE
+// ********************************************************
+app.post('/api/activate-premium', protect, async (req, res) => {
+    console.log("🚀 PREMIUM UPGRADE HIT for:", req.user._id);
+    try {
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user._id,
+            { isPremium: true },
+            { new: true } 
+        );
 
-const PORT = process.env.PORT || 5000;
-
-app.get('/', (req, res) => {
-  res.send('API is running... Nexus Backend is Live!');
+        if (updatedUser) {
+            console.log("✅ SUCCESS: User is now Premium!");
+            return res.status(200).json({ success: true, isPremium: true });
+        } else {
+            return res.status(404).json({ message: "User not found" });
+        }
+    } catch (error) {
+        console.error("❌ ERROR:", error);
+        return res.status(500).json({ message: "Server Error" });
+    }
 });
+// ********************************************************
+
+// ✅ Routes Definition
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/meetings', require('./routes/meetingRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/documents', require('./routes/documentRoutes'));
+app.use('/api/payment', require('./routes/paymentRoutes'));
+
+// 🔥🔥 YE LINE MISSING THI - ISAY ADD KIYA HAI 🔥🔥
+app.use('/api/chat', require('./routes/chatRoutes')); 
+// 👆 Ab server ko pata chalega ke chat kahan handle karni hai
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+
+// ✅ Port 5001
+const PORT = 5001;
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`📂 Files are accessible at: http://localhost:${PORT}/uploads`);
+    console.log(`✅ SERVER RUNNING on Port ${PORT}`);
 });
