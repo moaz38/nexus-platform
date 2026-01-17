@@ -72,6 +72,14 @@ export const SettingsPage: React.FC = () => {
     setBillingData({ ...billingData, [e.target.name]: e.target.value });
   };
 
+  const handleSaveBilling = () => {
+    if(!billingData.cardNumber || !billingData.cvc) {
+        toast.error("Please enter valid card details");
+        return;
+    }
+    toast.success("Billing Method Saved Successfully!");
+  };
+
   // 🔥 MAIN SAVE FUNCTION
   const handleSaveChanges = async () => {
     setLoading(true);
@@ -99,11 +107,11 @@ export const SettingsPage: React.FC = () => {
         if (res.ok) {
             toast.success("Profile Updated Successfully!");
             
-            // ✅ ULTIMATE FIX: TypeScript ko ignore karo aur dono cheezein bhejo
-            // @ts-ignore
-            login(token, updatedUser); 
+            // ✅ FIX: Purana token aur naya data manually save karein 
+            localStorage.setItem('token', updatedUser.token || token); 
+            localStorage.setItem('business_nexus_user', JSON.stringify({ ...updatedUser, id: updatedUser._id }));
             
-            setTimeout(() => window.location.reload(), 1000);
+            window.location.reload(); 
         } else {
             toast.error(updatedUser.message || "Update Failed");
         }
@@ -112,14 +120,6 @@ export const SettingsPage: React.FC = () => {
     } finally {
         setLoading(false);
     }
-  };
-
-  const handleSaveBilling = () => {
-    if(!billingData.cardNumber || !billingData.cvc) {
-        toast.error("Please enter valid card details");
-        return;
-    }
-    toast.success("Billing Method Saved Successfully!");
   };
 
   // --- MENU BUTTON ---
@@ -147,8 +147,7 @@ export const SettingsPage: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        
-        {/* --- LEFT SIDEBAR --- */}
+        {/* LEFT SIDEBAR */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sticky top-24">
             <nav>
@@ -162,9 +161,8 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
         
-        {/* --- RIGHT CONTENT --- */}
+        {/* RIGHT CONTENT */}
         <div className="lg:col-span-3 space-y-6">
-          
           {/* 1️⃣ PROFILE */}
           {activeTab === 'profile' && (
             <Card>
@@ -218,15 +216,6 @@ export const SettingsPage: React.FC = () => {
                     </div>
                     <Button size="sm" className="ml-auto bg-indigo-600 hover:bg-indigo-700 text-white">Enable 2FA</Button>
                 </div>
-                <div className="pt-4">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Change Password</h3>
-                    <div className="space-y-4 max-w-md">
-                        <Input label="Current Password" type="password" placeholder="••••••••" />
-                        <Input label="New Password" type="password" placeholder="••••••••" />
-                        <Input label="Confirm New Password" type="password" placeholder="••••••••" />
-                        <div className="flex justify-start"><Button variant="outline">Update Password</Button></div>
-                    </div>
-                </div>
                 </CardBody>
             </Card>
           )}
@@ -234,64 +223,20 @@ export const SettingsPage: React.FC = () => {
           {/* 3️⃣ NOTIFICATIONS */}
           {activeTab === 'notifications' && (
              <Card>
-                <CardHeader><h2 className="text-lg font-bold text-gray-900">Notification Preferences</h2></CardHeader>
+                <CardHeader><h2 className="text-lg font-bold text-gray-900">Notifications</h2></CardHeader>
                 <CardBody className="space-y-0 divide-y divide-gray-100">
                     {[
-                        { id: 'emailAlerts', title: 'Email Alerts', desc: 'Receive emails about new messages and meetings.' },
-                        { id: 'pushNotifs', title: 'Push Notifications', desc: 'Receive real-time push notifications.' },
-                        { id: 'newDeals', title: 'New Deals', desc: 'Get notified when a new investor matches your profile.' },
-                        { id: 'marketingEmails', title: 'Marketing', desc: 'Receive news about platform features.' }
+                        { id: 'emailAlerts', title: 'Email Alerts', desc: 'Receive emails about new messages.' },
+                        { id: 'pushNotifs', title: 'Push Notifications', desc: 'Receive real-time notifications.' },
                     ].map((item: any) => (
                         <div key={item.id} className="flex items-center justify-between py-4">
                             <div><h3 className="font-medium text-gray-900">{item.title}</h3><p className="text-sm text-gray-500">{item.desc}</p></div>
                             <label className="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" className="sr-only peer" checked={(notifSettings as any)[item.id]} onChange={() => toggleNotif(item.id)} />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-indigo-600"></div>
                             </label>
                         </div>
                     ))}
-                </CardBody>
-             </Card>
-          )}
-
-          {/* 4️⃣ LANGUAGE */}
-          {activeTab === 'language' && (
-             <Card>
-                <CardHeader><h2 className="text-lg font-bold text-gray-900">Language & Region</h2></CardHeader>
-                <CardBody className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Select Language</label>
-                        <select 
-                            value={language} 
-                            onChange={(e) => { setLanguage(e.target.value); toast.success(`Language changed to ${e.target.value}`) }}
-                            className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option value="English">English (United States)</option>
-                            <option value="Urdu">Urdu (Pakistan)</option>
-                            <option value="Spanish">Spanish</option>
-                            <option value="French">French</option>
-                        </select>
-                    </div>
-                </CardBody>
-             </Card>
-          )}
-
-          {/* 5️⃣ APPEARANCE */}
-          {activeTab === 'appearance' && (
-             <Card>
-                <CardHeader><h2 className="text-lg font-bold text-gray-900">Appearance</h2></CardHeader>
-                <CardBody>
-                    <div className="grid grid-cols-3 gap-4">
-                        {[ { name: 'Light', icon: Sun }, { name: 'Dark', icon: Moon }, { name: 'System', icon: Monitor } ].map((t) => (
-                            <div key={t.name} onClick={() => { setTheme(t.name); toast.success(`Theme set to ${t.name}`) }}
-                                className={`cursor-pointer border-2 rounded-xl p-4 flex flex-col items-center gap-3 transition-all ${theme === t.name ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
-                            >
-                                <t.icon size={24} className={theme === t.name ? 'text-indigo-600' : 'text-gray-500'} />
-                                <span className={`font-medium ${theme === t.name ? 'text-indigo-900' : 'text-gray-700'}`}>{t.name}</span>
-                                {theme === t.name && <CheckCircle size={16} className="text-indigo-600" />}
-                            </div>
-                        ))}
-                    </div>
                 </CardBody>
              </Card>
           )}
@@ -300,7 +245,7 @@ export const SettingsPage: React.FC = () => {
           {activeTab === 'billing' && (
              <div className="space-y-6">
                  <Card>
-                    <CardHeader className="flex justify-between items-center"><h2 className="text-lg font-bold text-gray-900">Payment Method</h2><div className="flex gap-2"><span className="px-2 py-1 bg-gray-100 rounded text-xs font-bold text-gray-600">VISA</span><span className="px-2 py-1 bg-gray-100 rounded text-xs font-bold text-gray-600">MASTERCARD</span></div></CardHeader>
+                    <CardHeader className="flex justify-between items-center"><h2 className="text-lg font-bold text-gray-900">Payment Method</h2></CardHeader>
                     <CardBody className="space-y-4">
                         <Input label="Name on Card" name="cardName" placeholder="MUHAMMAD MOAZ" value={billingData.cardName} onChange={handleBillingChange} />
                         <Input label="Card Number" name="cardNumber" placeholder="0000 0000 0000 0000" value={billingData.cardNumber} onChange={handleBillingChange} />
@@ -311,13 +256,8 @@ export const SettingsPage: React.FC = () => {
                         <Button fullWidth onClick={handleSaveBilling}>Save Payment Method</Button>
                     </CardBody>
                  </Card>
-                 <Card>
-                     <CardHeader><h2 className="text-lg font-bold text-gray-900">Billing History</h2></CardHeader>
-                     <CardBody><p className="text-gray-500 text-sm text-center py-4">No past invoices found.</p></CardBody>
-                 </Card>
              </div>
           )}
-
         </div>
       </div>
     </div>

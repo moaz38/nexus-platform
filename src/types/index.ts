@@ -81,3 +81,15 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+export interface Agreement {
+  id: string;
+  entrepreneurId: string | User;
+  investorId: string | User;
+  documentTitle: string;
+  documentContent: string;
+  entrepreneurSignature?: string; // Base64 image
+  investorSignature?: string;     // Base64 image
+  status: 'pending' | 'partially_signed' | 'completed';
+  signedAt?: string;
+  createdAt: string;
+}

@@ -2,36 +2,29 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-// Token generate karne ka function
+// Token banane ka function
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
 // @desc    Register new user
-// @route   POST /api/auth/register
-// @access  Public
-const registerUser = async (req, res) => {
+exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    const cleanEmail = email.toLowerCase().trim();
 
-    // Check agar user pehle se hai
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
+    const userExists = await User.findOne({ email: cleanEmail });
+    if (userExists) return res.status(400).json({ message: 'User already exists' });
 
-    // Password ko secure (hash) karna
+    // 🔒 Single Hashing (Milestone 7 Security)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Naya user create karna
     const user = await User.create({
       name,
-      email,
+      email: cleanEmail,
       password: hashedPassword,
-      role,
+      role: role.toLowerCase(),
     });
 
     if (user) {
@@ -42,34 +35,36 @@ const registerUser = async (req, res) => {
         role: user.role,
         token: generateToken(user.id),
       });
-    } else {
-      res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
-const loginUser = async (req, res) => {
+// @desc    Auth user & get token
+exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const cleanEmail = email.toLowerCase().trim();
 
-    // Check email
-    const user = await User.findOne({ email });
+    console.log("--- 🕵️ Login Debug ---");
+    const user = await User.findOne({ email: cleanEmail });
 
-    // Check password
     if (user && (await bcrypt.compare(password, user.password))) {
+      // 🔥 2FA MOCKUP (Milestone 7)
+      console.log(`🔒 2FA OTP generated for ${user.email}`);
+
       res.json({
         _id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        isPremium: user.isPremium,
         token: generateToken(user.id),
+        message: "Login Successful."
       });
     } else {
+      console.log("❌ Login failed: Password mismatch or user not found");
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
@@ -77,4 +72,41 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser };
+// @desc    Update user profile (Bio edit fix) 🔥
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      // Sirf wo fields update karein jo request mein aayi hain
+      user.name = req.body.name || user.name;
+      user.bio = req.body.bio || user.bio;
+      user.location = req.body.location || user.location;
+      
+      // Agar password update ho raha ho
+      if (req.body.password) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(req.body.password, salt);
+      }
+
+      const updatedUser = await user.save();
+
+      // ✨ Naya token bhej rahe hain taake logout na ho
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        bio: updatedUser.bio,
+        location: updatedUser.location,
+        isPremium: updatedUser.isPremium,
+        token: generateToken(updatedUser._id),
+      });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    console.error("❌ Update Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

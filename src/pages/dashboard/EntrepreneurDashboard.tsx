@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Bell, Calendar, TrendingUp, Check, X, Clock } from 'lucide-react';
+import { Users, Bell, Calendar, TrendingUp, Check, X, Clock, FileSignature } from 'lucide-react'; // FileSignature add kiya
 import { Button } from '../../components/ui/Button';
 import { Card, CardBody, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { InvestorCard } from '../../components/investor/InvestorCard';
+import SignatureModal from '../../components/SignatureModal'; // SignatureModal Import kiya
+import { Agreement } from '../../types'; // Type import kiya
 import toast from 'react-hot-toast';
 
 export const EntrepreneurDashboard: React.FC = () => {
   const { user } = useAuth();
   
-  // States
+  // Existing States
   const [meetings, setMeetings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🔥 NEW: Agreements States (Milestone 5)
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
 
   // Fetch Meetings Function
   const fetchMeetings = async () => {
@@ -36,11 +42,28 @@ export const EntrepreneurDashboard: React.FC = () => {
     }
   };
 
+  // 🔥 NEW: Fetch Agreements Function (Milestone 5)
+  const fetchAgreements = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://127.0.0.1:5001/api/agreements', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAgreements(data);
+      }
+    } catch (error) {
+      console.error("Error fetching agreements:", error);
+    }
+  };
+
   useEffect(() => {
     fetchMeetings();
+    fetchAgreements(); // Agreements load karo
   }, [user]);
 
-  // Handle Accept/Reject
+  // Existing Handle Accept/Reject
   const handleStatusUpdate = async (id: string, status: 'accepted' | 'rejected') => {
     try {
         const token = localStorage.getItem('token');
@@ -55,7 +78,7 @@ export const EntrepreneurDashboard: React.FC = () => {
 
         if (res.ok) {
             toast.success(`Meeting ${status} successfully!`);
-            fetchMeetings(); // List refresh karo
+            fetchMeetings();
         }
     } catch (error) {
         toast.error("Something went wrong");
@@ -67,6 +90,10 @@ export const EntrepreneurDashboard: React.FC = () => {
   // Filter Meetings
   const pendingMeetings = meetings.filter(m => m.status === 'pending');
   const upcomingMeetings = meetings.filter(m => m.status === 'accepted');
+
+  // 🔥 Filter Agreements for Signing (Milestone 5)
+  // Sirf wo agreements jo completed nahi hain aur jis par entrepreneur ka sign missing hai
+  const pendingAgreements = agreements.filter(a => a.status !== 'completed' && !a.entrepreneurSignature);
   
   return (
     <div className="space-y-6 animate-fade-in">
@@ -113,16 +140,47 @@ export const EntrepreneurDashboard: React.FC = () => {
           </CardBody>
         </Card>
       </div>
+
+      {/* 🔥 NEW: PENDING AGREEMENTS SECTION (Milestone 5) */}
+      {pendingAgreements.length > 0 && (
+        <Card className="border-2 border-blue-200 bg-blue-50">
+          <CardHeader className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <FileSignature className="text-blue-600" size={20} />
+              <h2 className="text-lg font-bold text-blue-900">Agreements Requiring Signature</h2>
+            </div>
+            <Badge variant="primary">{pendingAgreements.length} Urgent</Badge>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-3">
+              {pendingAgreements.map((agreement) => (
+                <div key={agreement.id} className="flex justify-between items-center p-4 bg-white rounded-lg border border-blue-100 shadow-sm">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{agreement.documentTitle}</h4>
+                    <p className="text-xs text-gray-500">Please review and provide your digital signature to proceed.</p>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setSelectedAgreementId(agreement.id)}
+                  >
+                    Sign Now
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* MEETING REQUESTS LIST */}
         <div className="lg:col-span-2 space-y-4">
+          {/* ... Baqi aapka meeting requests wala code yahan bilkul waisa hi hai ... */}
           <Card>
             <CardHeader className="flex justify-between items-center">
               <h2 className="text-lg font-medium text-gray-900">Meeting Requests</h2>
               <Badge variant="primary">{pendingMeetings.length} pending</Badge>
             </CardHeader>
-            
             <CardBody>
               {loading ? (
                   <p>Loading...</p>
@@ -184,7 +242,6 @@ export const EntrepreneurDashboard: React.FC = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Badge variant="success">Confirmed</Badge>
-                                  {/* JOIN BUTTON */}
                                   <Link to={`/room/${meeting._id}`}>
                                     <Button size="sm" variant="primary">
                                       Join Call
@@ -199,6 +256,16 @@ export const EntrepreneurDashboard: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* 🔥 SIGNATURE MODAL (Milestone 5) */}
+      {selectedAgreementId && (
+        <SignatureModal
+          agreementId={selectedAgreementId}
+          role="entrepreneur"
+          onClose={() => setSelectedAgreementId(null)}
+          onSuccess={fetchAgreements}
+        />
+      )}
     </div>
   );
 };

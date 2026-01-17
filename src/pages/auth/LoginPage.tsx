@@ -20,6 +20,9 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+
+    // 🔥 FIX: Login process shuru karne se pehle purana data saaf karein
+    localStorage.clear(); 
     
     try {
       await login(email, password, role);

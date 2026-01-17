@@ -28,6 +28,8 @@ import { SettingsPage } from './pages/settings/SettingsPage';
 import { HelpPage } from './pages/help/HelpPage';
 import { DealsPage } from './pages/deals/DealsPage';
 import { PaymentPage } from './pages/payment/PaymentPage';
+// 🔥 MILESTONE 6: Payment Success Page Import
+import { PaymentSuccess } from './pages/PaymentSuccess';
 
 // Chat Pages
 import { ChatPage } from './pages/chat/ChatPage';
@@ -88,16 +90,17 @@ function App() {
           <Route path="/deals" element={<DashboardLayout />}>
             <Route index element={<DealsPage />} />
           </Route>
-           
-          {/* Payment Page */}
+            
+          {/* Payment Routes */}
           <Route path="/payment" element={<DashboardLayout />}>
              <Route index element={<PaymentPage />} />
           </Route>
+
+          {/* 🔥 MILESTONE 6: Success Page Route */}
+          {/* Ye page DashboardLayout ke baghair rakha hai taake full screen success message aaye */}
+          <Route path="/payment-success" element={<PaymentSuccess />} />
           
-          {/* ✅ FIX: Chat Routes
-             1. Humne 'ChatPage' ki jagah 'MessagesPage' use kiya kyunke sara code wahan hai.
-             2. Humne ':userId' ki jagah ':id' kiya taake code match ho jaye.
-          */}
+          {/* Chat Routes */}
           <Route path="/chat" element={<DashboardLayout />}>
             <Route index element={<MessagesPage />} />
             <Route path=":id" element={<MessagesPage />} />

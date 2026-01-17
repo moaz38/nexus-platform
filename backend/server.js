@@ -45,19 +45,19 @@ app.post('/api/activate-premium', protect, async (req, res) => {
         return res.status(500).json({ message: "Server Error" });
     }
 });
-// ********************************************************
 
 // ✅ Routes Definition
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/agreements', require('./routes/agreementRoutes'));
 app.use('/api/meetings', require('./routes/meetingRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
-
-// 🔥🔥 YE LINE MISSING THI - ISAY ADD KIYA HAI 🔥🔥
 app.use('/api/chat', require('./routes/chatRoutes')); 
-// 👆 Ab server ko pata chalega ke chat kahan handle karni hai
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+
+// 🔥 MILESTONE 5: Agreement & E-Signature Routes
+
 
 // ✅ Port 5001
 const PORT = 5001;
