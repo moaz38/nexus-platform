@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // ✅ useEffect add kiya
 import { X, CheckCircle, FileText } from 'lucide-react';
 import { Button } from './ui/Button';
 import toast from 'react-hot-toast';
@@ -7,16 +7,41 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  investors: any[]; // List of investors from your meetings
+  investors: any[]; // Purana prop wese hi rehne dein taake error na aaye
 }
 
 const CreateAgreementModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, investors }) => {
   const [loading, setLoading] = useState(false);
+  const [allInvestors, setAllInvestors] = useState<any[]>([]); // ✅ Saare investors ke liye nayi state
   const [formData, setFormData] = useState({
     investorId: '',
     documentTitle: '',
     documentContent: ''
   });
+
+  // 🔥 NAYA LOGIC: Jab modal khulega, ye khud saare investors mangwaye ga
+  useEffect(() => {
+    if (isOpen) {
+      const fetchAllInvestors = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch('http://localhost:5001/api/users?role=investor', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setAllInvestors(data); // ✅ Saari list yahan save ho jayegi
+          }
+        } catch (error) {
+          console.error("Error fetching investors:", error);
+        }
+      };
+      fetchAllInvestors();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -81,15 +106,14 @@ const CreateAgreementModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, inv
                     required
                 >
                     <option value="">-- Choose an Investor --</option>
-                    {/* Unique Investors from meetings */}
-                    {investors.map((inv: any) => (
-                         // Use generic sender/receiver logic to find the OTHER person
-                         <option key={inv._id} value={inv.id || inv._id}>
+                    {/* ✅ AB YE 'allInvestors' USE KAREGA JIS ME SAB SHOW HONGE */}
+                    {allInvestors.map((inv: any) => (
+                         <option key={inv._id} value={inv._id}>
                              {inv.name} ({inv.email})
                          </option>
                     ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">You can only create contracts with connected investors.</p>
+                <p className="text-xs text-gray-500 mt-1">Select any registered investor to create a contract.</p>
             </div>
 
             {/* Document Title */}
