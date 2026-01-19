@@ -1,8 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 
-// Token banane ka function
+// Token Generate Function
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
@@ -16,14 +15,11 @@ exports.registerUser = async (req, res) => {
     const userExists = await User.findOne({ email: cleanEmail });
     if (userExists) return res.status(400).json({ message: 'User already exists' });
 
-    // 🔒 Single Hashing (Milestone 7 Security)
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
+    // ✅ Plain password create karein (Model khud Hash karega)
     const user = await User.create({
       name,
       email: cleanEmail,
-      password: hashedPassword,
+      password: password, 
       role: role.toLowerCase(),
     });
 
@@ -47,12 +43,11 @@ exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
     const cleanEmail = email.toLowerCase().trim();
 
-    console.log("--- 🕵️ Login Debug ---");
     const user = await User.findOne({ email: cleanEmail });
 
-    if (user && (await bcrypt.compare(password, user.password))) {
-      // 🔥 2FA MOCKUP (Milestone 7)
-      console.log(`🔒 2FA OTP generated for ${user.email}`);
+    // ✅ Model method use karein
+    if (user && (await user.matchPassword(password))) {
+      console.log(`🔒 Login Successful: ${user.email}`);
 
       res.json({
         _id: user.id,
@@ -60,11 +55,11 @@ exports.loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
         isPremium: user.isPremium,
+        avatarUrl: user.avatarUrl, // Avatar bhi bhejein
         token: generateToken(user.id),
         message: "Login Successful."
       });
     } else {
-      console.log("❌ Login failed: Password mismatch or user not found");
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
@@ -72,26 +67,34 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-// @desc    Update user profile (Bio edit fix) 🔥
+// @desc    Update user profile (Bio, Image, Password, Info)
 exports.updateUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
     if (user) {
-      // Sirf wo fields update karein jo request mein aayi hain
+      // ✅ Basic Info
       user.name = req.body.name || user.name;
       user.bio = req.body.bio || user.bio;
       user.location = req.body.location || user.location;
       
-      // Agar password update ho raha ho
-      if (req.body.password) {
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(req.body.password, salt);
+      // ✅ Professional Info (Jo settings page par hain)
+      user.companyName = req.body.companyName || user.companyName;
+      user.industry = req.body.industry || user.industry;
+      user.website = req.body.website || user.website;
+
+      // ✅ Profile Picture (Agar frontend bhej raha hai)
+      if (req.body.avatarUrl) {
+        user.avatarUrl = req.body.avatarUrl;
       }
 
-      const updatedUser = await user.save();
+      // ✅ Password Logic (Agar user ne change kiya ho)
+      if (req.body.password) {
+        user.password = req.body.password; // Plain text save karein, Model hash karega
+      }
 
-      // ✨ Naya token bhej rahe hain taake logout na ho
+      const updatedUser = await user.save(); // 🔥 Pre-save hook trigger hoga
+
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
@@ -99,6 +102,10 @@ exports.updateUserProfile = async (req, res) => {
         role: updatedUser.role,
         bio: updatedUser.bio,
         location: updatedUser.location,
+        avatarUrl: updatedUser.avatarUrl,
+        companyName: updatedUser.companyName,
+        industry: updatedUser.industry,
+        website: updatedUser.website,
         isPremium: updatedUser.isPremium,
         token: generateToken(updatedUser._id),
       });

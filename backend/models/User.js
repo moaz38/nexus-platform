@@ -10,6 +10,8 @@ const userSchema = new mongoose.Schema({
   bio: { type: String, default: "Ready to connect." },
   location: { type: String, default: "Remote" },
   isPremium: { type: Boolean, default: false },
+  
+  // Extra fields
   companyName: { type: String },
   industry: { type: String },
   skills: { type: [String] },
@@ -21,7 +23,21 @@ const userSchema = new mongoose.Schema({
   portfolioCompanies: { type: [String], default: [] }, 
 }, { timestamps: true });
 
-// ✅ Password Match karne ke liye sirf ye method rakhein
+// 🔥 FIX: pre-save hook mein arrow function use nahi karna
+userSchema.pre('save', async function () {
+  // Agar password modify nahi hua to yahan se nikal jao
+  if (!this.isModified('password')) return;
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    // ✅ Note: Yahan 'next()' likhne ki zaroorat nahi agar async function use kar rahe hon
+  } catch (error) {
+    throw error; // Direct error throw karein
+  }
+});
+
+// ✅ Password Match Function
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

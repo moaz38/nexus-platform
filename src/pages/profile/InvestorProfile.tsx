@@ -22,6 +22,7 @@ export const InvestorProfile: React.FC = () => {
   const [investor, setInvestor] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sendingPitch, setSendingPitch] = useState(false); // 🔥 New State for button loading
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,8 +59,35 @@ export const InvestorProfile: React.FC = () => {
   }, [id]);
 
   const handleMessage = () => navigate(`/chat/${id}`);
-  const handlePitch = () => {
-    toast.success("Pitch request sent successfully!");
+
+  // 🔥 FIXED: Ab ye Backend par Asli Request Bhejega
+  const handlePitch = async () => {
+    setSendingPitch(true);
+    try {
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch('http://localhost:5001/api/investments/request', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ investorId: id }) // Investor ID backend ko bheji
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            toast.success("Pitch Request Sent Successfully!");
+        } else {
+            // Agar pehle se request bheji hui ho tu error dikhaye
+            toast.error(data.message || "Failed to send pitch");
+        }
+    } catch (error) {
+        toast.error("Server Error: Could not send request");
+    } finally {
+        setSendingPitch(false);
+    }
   };
 
   if (loading) return <div className="p-20 text-center text-gray-500">Loading Profile...</div>;
@@ -82,9 +110,8 @@ export const InvestorProfile: React.FC = () => {
 
         <div className="max-w-5xl mx-auto px-4 relative pb-6">
             
-            {/* Profile Picture (FIXED) */}
+            {/* Profile Picture */}
             <div className="absolute -top-16 left-6">
-                {/* Scale 1.5 use kiya taake Avatar bara dikhay bina code change kiye */}
                 <div className={`rounded-full p-1 bg-white transform scale-150 origin-bottom-left ${isPremium ? 'border-2 border-yellow-500' : ''}`}>
                     <Avatar 
                         src={investor.avatarUrl || ''} 
@@ -99,8 +126,18 @@ export const InvestorProfile: React.FC = () => {
                  <Button variant="outline" onClick={handleMessage}>
                     <div className="flex items-center gap-2"><MessageCircle size={18} /> Message</div>
                  </Button>
-                 <Button variant="primary" onClick={handlePitch} className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600">
-                    <div className="flex items-center gap-2"><TrendingUp size={18} /> Pitch Your Idea</div>
+                 
+                 {/* 🔥 UPDATED BUTTON with Loading State */}
+                 <Button 
+                    variant="primary" 
+                    onClick={handlePitch} 
+                    disabled={sendingPitch}
+                    className="bg-emerald-600 hover:bg-emerald-700 border-emerald-600"
+                 >
+                    <div className="flex items-center gap-2">
+                        <TrendingUp size={18} /> 
+                        {sendingPitch ? "Sending..." : "Pitch Your Idea"}
+                    </div>
                  </Button>
             </div>
 
@@ -109,7 +146,6 @@ export const InvestorProfile: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <h1 className="text-2xl font-bold text-gray-900">{investor.name}</h1>
                     
-                    {/* Icons Wrappers to prevent TS Errors */}
                     {isPremium && (
                       <div className="text-yellow-500" title="Premium Investor">
                         <Crown size={20} fill="currentColor" />

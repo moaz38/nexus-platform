@@ -12,9 +12,15 @@ const { protect } = require('./middleware/authMiddleware');
 
 const app = express();
 
+// ********************************************************
+// 🔥 IMPORTANT FIX: Increased Payload Size to 50MB
+// ********************************************************
+// Pehle 10mb tha, ab 50mb kar diya taake "Saving..." par na atkay
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
 // ✅ CORS (Sab allow kar diya)
 app.use(cors({ origin: '*' }));
-app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database Connection
@@ -48,16 +54,13 @@ app.post('/api/activate-premium', protect, async (req, res) => {
 
 // ✅ Routes Definition
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/agreements', require('./routes/agreementRoutes'));
+app.use('/api/agreements', require('./routes/agreementRoutes')); // ✅ Agreement Route
 app.use('/api/meetings', require('./routes/meetingRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes')); 
 app.use('/api/notifications', require('./routes/notificationRoutes'));
-
-// 🔥 MILESTONE 5: Agreement & E-Signature Routes
-
 
 // ✅ Port 5001
 const PORT = 5001;

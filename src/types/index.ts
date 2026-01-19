@@ -1,16 +1,20 @@
 export type UserRole = 'entrepreneur' | 'investor';
 
 export interface User {
-  id: string;
+  _id: string;        // ✅ MongoDB ID
+  id?: string;        // Optional (Backwards compatibility)
   name: string;
   email: string;
   role: UserRole;
-  avatarUrl?: string; // Optional kar diya taake crash na ho
-  bio?: string;       // Optional
+  avatarUrl?: string; 
+  bio?: string;       
   isOnline?: boolean;
   createdAt?: string;
-  location?: string;  // ✅ Ye Naya add kiya hai (Error fix karne ke liye)
+  location?: string;  
   isPremium?: boolean;
+  
+  // ✅ FIX 1: companyName add kiya (Red line hat jayegi)
+  companyName?: string; 
 }
 
 export interface Entrepreneur extends User {
@@ -34,7 +38,8 @@ export interface Investor extends User {
 }
 
 export interface Message {
-  id: string;
+  _id: string; 
+  id?: string;
   senderId: string;
   receiverId: string;
   content: string;
@@ -43,24 +48,27 @@ export interface Message {
 }
 
 export interface ChatConversation {
-  id: string;
+  _id: string; 
+  id?: string;
   participants: string[];
   lastMessage?: Message;
   updatedAt: string;
 }
 
 export interface CollaborationRequest {
-  id: string;
-  senderId: string; // Changed from investorId/entrepreneurId to generic sender/receiver
+  _id: string; 
+  id?: string;
+  senderId: string; 
   receiverId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string;
   createdAt: string;
-  sender?: User; // UI display ke liye
+  sender?: User; 
 }
 
 export interface Document {
-  id: string;
+  _id: string; 
+  id?: string;
   name: string;
   type: string;
   size: string;
@@ -70,6 +78,21 @@ export interface Document {
   ownerId: string;
 }
 
+export interface Agreement {
+  _id: string; 
+  id?: string;
+  entrepreneurId: string | User;
+  investorId: string | User;
+  documentTitle: string;
+  documentContent: string;
+  entrepreneurSignature?: string; 
+  investorSignature?: string;     
+  status: 'pending' | 'partially_signed' | 'completed';
+  signedAt?: string;
+  createdAt: string;
+  companyName?: string;
+}
+
 export interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, role: UserRole) => Promise<void>;
@@ -77,19 +100,11 @@ export interface AuthContextType {
   logout: () => void;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
-  updateProfile: (userId: string, updates: Partial<User>) => Promise<void>;
+  
+  // ✅ FIX 2: Yahan 'FormData' allow kiya (fd wala error hat jayega)
+  updateProfile: (userId: string, updates: Partial<User> | FormData) => Promise<void>;
+  
   isAuthenticated: boolean;
   isLoading: boolean;
-}
-export interface Agreement {
-  id: string;
-  entrepreneurId: string | User;
-  investorId: string | User;
-  documentTitle: string;
-  documentContent: string;
-  entrepreneurSignature?: string; // Base64 image
-  investorSignature?: string;     // Base64 image
-  status: 'pending' | 'partially_signed' | 'completed';
-  signedAt?: string;
-  createdAt: string;
+  refreshProfile: () => Promise<void>;
 }

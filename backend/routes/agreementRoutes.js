@@ -2,18 +2,19 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { 
-    createAgreement, 
-    signAgreement, 
-    getMyAgreements 
+  createAgreement, 
+  getMyAgreements, 
+  signAgreement 
 } = require('../controllers/agreementController');
 
-// GET /api/agreements -> User ke apne saare agreements
-router.get('/', protect, getMyAgreements);
-
-// POST /api/agreements -> Naya agreement banana
+// 1. Create a new agreement
 router.post('/', protect, createAgreement);
 
-// PUT /api/agreements/sign/:id -> Digital sign karna
+// 2. Get my agreements
+router.get('/my', protect, getMyAgreements);
+
+// 3. 🔥 SIGNATURE ROUTE (This was likely missing!)
+// Matches frontend call: /api/agreements/sign/:id
 router.put('/sign/:id', protect, signAgreement);
 
 module.exports = router;

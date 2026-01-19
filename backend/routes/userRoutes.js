@@ -1,35 +1,41 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs'); // ✅ Hashing ke liye zaruri hai
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware'); 
 const User = require('../models/User');
 
 // ******************************************************
-// 🔥 1. UPDATE PROFILE
+// 🔥 UPDATE PROFILE (Direct Hashing Logic Added)
 // ******************************************************
 router.put('/profile', protect, upload.single('avatar'), async (req, res) => {
     try {
-        const updateFields = {
-            name: req.body.name,
-            bio: req.body.bio,
-            location: req.body.location,
-            companyName: req.body.companyName,
-            industry: req.body.industry,
-            website: req.body.website
-        };
+        const user = await User.findById(req.user._id);
 
-        if (req.file) {
-            // ✅ FIX: 'localhost' ki jagah '127.0.0.1' use kiya taake image foran show ho
-            updateFields.avatarUrl = `http://127.0.0.1:5001/uploads/${req.file.filename}`;
-        }
+        if (user) {
+            // Normal Fields Update
+            user.name = req.body.name || user.name;
+            user.bio = req.body.bio || user.bio;
+            user.location = req.body.location || user.location;
+            user.companyName = req.body.companyName || user.companyName;
+            user.industry = req.body.industry || user.industry;
+            user.website = req.body.website || user.website;
 
-        const updatedUser = await User.findByIdAndUpdate(
-            req.user._id,
-            { $set: updateFields },
-            { new: true, runValidators: false }
-        );
+            // ✅ Image Upload Logic
+            if (req.file) {
+                user.avatarUrl = `http://127.0.0.1:5001/uploads/${req.file.filename}`;
+            }
 
-        if (updatedUser) {
+            // ✅ Password Update (Manual Hashing to bypass Middleware error)
+            if (req.body.password) {
+                const salt = await bcrypt.genSalt(10);
+                user.password = await bcrypt.hash(req.body.password, salt);
+            }
+
+            // ✅ Save User
+            // Note: Agar pre-save hook abhi bhi error de, to User.js se usay comment kar dein
+            const updatedUser = await user.save();
+
             res.json({
                 _id: updatedUser._id,
                 name: updatedUser.name,
@@ -39,54 +45,40 @@ router.put('/profile', protect, upload.single('avatar'), async (req, res) => {
                 bio: updatedUser.bio,
                 location: updatedUser.location,
                 companyName: updatedUser.companyName,
+                industry: updatedUser.industry,
                 website: updatedUser.website,
-                token: req.headers.authorization.split(' ')[1]
+                isPremium: updatedUser.isPremium,
+                token: req.headers.authorization.split(' ')[1] 
             });
+
         } else {
             res.status(404).json({ message: 'User not found' });
         }
 
     } catch (error) {
-        console.error("❌ PROFILE UPDATE ERROR:", error);
+        console.error("❌ PROFILE UPDATE ERROR:", error.stack); // Full error details terminal mein check karein
         res.status(500).json({ message: error.message || 'Server Error' });
     }
 });
 
-// ******************************************************
-// ✅ 2. GET ALL USERS
-// ******************************************************
+// GET ALL USERS & GET SINGLE USER waise hi rehne dein...
 router.get('/', protect, async (req, res) => {
     try {
         const { role } = req.query;
-        let query = {};
-        
-        if (role) {
-            query.role = role;
-        }
-        
-        query._id = { $ne: req.user._id };
-
+        let query = { _id: { $ne: req.user._id } };
+        if (role) query.role = role;
         const users = await User.find(query).select('-password');
         res.json(users);
     } catch (error) {
-        console.error("Fetch Users Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 });
 
-// ******************************************************
-// ✅ 3. GET SINGLE USER
-// ******************************************************
 router.get('/:id', protect, async (req, res) => {
     try {
         const user = await User.findById(req.params.id).select('-password');
-        if (user) {
-            res.json(user);
-        } else {
-            res.status(404).json({ message: 'User not found' });
-        }
+        user ? res.json(user) : res.status(404).json({ message: 'User not found' });
     } catch (error) {
-        console.error("Fetch Single User Error:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 });
